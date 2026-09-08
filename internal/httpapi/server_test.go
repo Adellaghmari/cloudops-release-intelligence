@@ -6,11 +6,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/adell/cloudops-release-intelligence/internal/config"
 	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/adell/cloudops-release-intelligence/internal/events"
 	"github.com/adell/cloudops-release-intelligence/internal/localseed"
 	"github.com/adell/cloudops-release-intelligence/internal/repository/memory"
 	"github.com/adell/cloudops-release-intelligence/internal/service"
@@ -31,7 +33,44 @@ func testServer(t *testing.T) http.Handler {
 		CORSOrigins: []string{"http://localhost:4200"},
 	}
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	return NewEngine(cfg, service.NewCatalog(store), logger)
+	return NewEngine(cfg, service.NewCatalog(store), logger, events.NewProcessor(store, 3))
+}
+
+func TestIngestEventIdempotent(t *testing.T) {
+	h := testServer(t)
+	body := `{"event_id":"evt_api_1","event_type":"ci.run.completed","occurred_at":"2026-09-08T12:00:00Z","source":"cloudops-api","schema_version":"1.0","release_id":"rel_northstar_payments_demo","correlation_id":"corr_api_1"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/events", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/events", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("duplicate status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var resp eventIngestResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Duplicate {
+		t.Fatalf("%+v", resp)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/events", strings.NewReader(`{"event_id":"bad id","event_type":"ci.run.completed","occurred_at":"2026-09-08T12:00:00Z","source":"cloudops-api","schema_version":"1.0"}`))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("malformed status=%d", rec.Code)
+	}
+	if contains(rec.Body.String(), "ValidationException") || contains(rec.Body.String(), "aws") {
+		t.Fatalf("leaked aws error: %s", rec.Body.String())
+	}
 }
 
 func TestHealth(t *testing.T) {

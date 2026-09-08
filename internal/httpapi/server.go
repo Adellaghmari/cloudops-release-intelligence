@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"github.com/adell/cloudops-release-intelligence/internal/config"
+	"github.com/adell/cloudops-release-intelligence/internal/events"
 	"github.com/adell/cloudops-release-intelligence/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
-func NewEngine(cfg config.Config, catalog *service.Catalog, logger *slog.Logger) *gin.Engine {
+func NewEngine(cfg config.Config, catalog *service.Catalog, logger *slog.Logger, proc *events.Processor) *gin.Engine {
 	if cfg.Env != "local" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -22,6 +23,7 @@ func NewEngine(cfg config.Config, catalog *service.Catalog, logger *slog.Logger)
 
 	h := &Handler{
 		catalog:     catalog,
+		processor:   proc,
 		logger:      logger,
 		serviceName: cfg.ServiceName,
 		version:     cfg.Version,
@@ -36,6 +38,7 @@ func NewEngine(cfg config.Config, catalog *service.Catalog, logger *slog.Logger)
 		v1.GET("/releases", h.ListReleases)
 		v1.GET("/releases/:id", h.GetRelease)
 		v1.GET("/releases/:id/risk", h.GetReleaseRisk)
+		v1.POST("/events", h.IngestEvent)
 	}
 	r.NoRoute(func(c *gin.Context) {
 		writeError(c, 404, "NOT_FOUND", "route not found")

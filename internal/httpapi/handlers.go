@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/adell/cloudops-release-intelligence/internal/events"
 	"github.com/adell/cloudops-release-intelligence/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
 	catalog     *service.Catalog
+	processor   *events.Processor
 	logger      *slog.Logger
 	serviceName string
 	version     string
@@ -154,6 +156,43 @@ func (h *Handler) GetReleaseRisk(c *gin.Context) {
 	})
 }
 
+func (h *Handler) IngestEvent(c *gin.Context) {
+	if h.processor == nil {
+		writeError(c, http.StatusServiceUnavailable, "UNAVAILABLE", "event processor is not configured")
+		return
+	}
+	var body eventIngestRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_EVENT", "malformed event envelope")
+		return
+	}
+	env, err := envelopeFromRequest(body)
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_EVENT", err.Error())
+		return
+	}
+	result, err := h.processor.Handle(c.Request.Context(), env, time.Now().UTC())
+	if result.Dropped {
+		writeError(c, http.StatusBadRequest, "INVALID_EVENT", result.Reason)
+		return
+	}
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	status := http.StatusAccepted
+	if result.Duplicate {
+		status = http.StatusOK
+	}
+	c.JSON(status, eventIngestResponse{
+		EventID:   body.EventID,
+		Accepted:  true,
+		Duplicate: result.Duplicate,
+		Pending:   result.Pending,
+		Reason:    result.Reason,
+	})
+}
+
 func mapService(s domain.Service) serviceJSON {
 	return serviceJSON{
 		ID:          s.ID.String(),
@@ -202,6 +241,33 @@ func mapDeployment(d domain.Deployment) deploymentJSON {
 		Target: d.Target, ImageDigest: d.ImageDigest, ArtifactURI: d.ArtifactURI,
 		StartedAt: d.StartedAt, CompletedAt: d.CompletedAt,
 	}
+}
+
+func envelopeFromRequest(body eventIngestRequest) (events.Envelope, error) {
+	env := events.Envelope{
+		EventID:       domain.EventID(body.EventID),
+		EventType:     domain.EventType(body.EventType),
+		OccurredAt:    body.OccurredAt,
+		CorrelationID: body.CorrelationID,
+		Source:        domain.EventProducer(body.Source),
+		SchemaVersion: body.SchemaVersion,
+		Payload:       body.Payload,
+	}
+	if body.ReleaseID != "" {
+		id, err := domain.ParseReleaseID(body.ReleaseID)
+		if err != nil {
+			return events.Envelope{}, err
+		}
+		env.ReleaseID = &id
+	}
+	if body.ServiceID != "" {
+		id, err := domain.ParseServiceID(body.ServiceID)
+		if err != nil {
+			return events.Envelope{}, err
+		}
+		env.ServiceID = &id
+	}
+	return env, nil
 }
 
 func mapCIRun(r domain.CIRun) ciRunJSON {
