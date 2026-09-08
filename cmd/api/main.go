@@ -13,6 +13,8 @@ import (
 	"github.com/adell/cloudops-release-intelligence/internal/config"
 	"github.com/adell/cloudops-release-intelligence/internal/httpapi"
 	"github.com/adell/cloudops-release-intelligence/internal/localseed"
+	"github.com/adell/cloudops-release-intelligence/internal/repository"
+	"github.com/adell/cloudops-release-intelligence/internal/repository/dynamo"
 	"github.com/adell/cloudops-release-intelligence/internal/repository/memory"
 	"github.com/adell/cloudops-release-intelligence/internal/service"
 )
@@ -30,7 +32,11 @@ func main() {
 		slog.String("version", cfg.Version),
 	)
 
-	store := memory.New()
+	store, err := openStore(context.Background(), cfg, logger)
+	if err != nil {
+		logger.Error("store", slog.String("err", err.Error()))
+		os.Exit(1)
+	}
 	if cfg.SeedLocalData {
 		if err := localseed.Load(context.Background(), store, time.Now().UTC()); err != nil {
 			logger.Error("local seed failed", slog.String("err", err.Error()))
@@ -77,6 +83,24 @@ func main() {
 			os.Exit(1)
 		}
 	}
+}
+
+func openStore(ctx context.Context, cfg config.Config, logger *slog.Logger) (repository.Store, error) {
+	if cfg.StoreDriver != "dynamodb" {
+		logger.Info("using memory store")
+		return memory.New(), nil
+	}
+	client, err := dynamo.NewClient(ctx, dynamo.ClientOptions{
+		Region: cfg.AWSRegion, Endpoint: cfg.DynamoEndpoint, Table: cfg.DynamoTable,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := dynamo.EnsureTable(ctx, client, cfg.DynamoTable); err != nil {
+		return nil, err
+	}
+	logger.Info("using dynamodb store", slog.String("table", cfg.DynamoTable))
+	return dynamo.New(client, cfg.DynamoTable), nil
 }
 
 func parseLevel(v string) slog.Level {

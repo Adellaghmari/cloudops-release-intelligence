@@ -289,6 +289,24 @@ func (s *Store) GetEvent(_ context.Context, id domain.EventID) (domain.ReleaseEv
 	return e, nil
 }
 
+func (s *Store) ListEventsByRelease(_ context.Context, releaseID domain.ReleaseID) ([]domain.ReleaseEvent, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var out []domain.ReleaseEvent
+	for _, e := range s.events {
+		if e.ReleaseID != nil && *e.ReleaseID == releaseID {
+			out = append(out, e)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].OccurredAt.Equal(out[j].OccurredAt) {
+			return out[i].ID.String() < out[j].ID.String()
+		}
+		return out[i].OccurredAt.Before(out[j].OccurredAt)
+	})
+	return out, nil
+}
+
 func (s *Store) CreateDecision(_ context.Context, d domain.ReleaseDecision) error {
 	d = d.Normalized()
 	if err := d.Validate(); err != nil {

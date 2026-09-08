@@ -32,7 +32,7 @@ This remains a portfolio project. It is not professional work experience.
 | --- | --- | --- | --- |
 | AWS Lambda | PLANNED | Terraform-applied functions serving traffic | None |
 | Amazon API Gateway | PLANNED | Public HTTPS API | None |
-| Amazon DynamoDB | PLANNED | Production table with real items | None |
+| Amazon DynamoDB | TESTED | Production table with real items | Adapter + single-table mapping + conditional EventID writes tested against a local DynamoDB-compatible fake. No production table. Not DynamoDB Local (Docker/Java unavailable). |
 | Amazon S3 | PLANNED | Frontend origin and/or raw event objects | None |
 | Amazon CloudFront | PLANNED | Public site URL | None |
 | Amazon EventBridge | PLANNED | Custom bus receiving real events | None |

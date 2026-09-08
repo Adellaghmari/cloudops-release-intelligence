@@ -1,8 +1,8 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence
-**Phase:** 1 — Core domain models + Go API
-**Status:** PHASE 1 COMPLETE
+**Phase:** 2 — DynamoDB persistence adapter
+**Status:** PHASE 2 COMPLETE (local)
 **Complete:** No
 
 This file is the source of truth for what exists versus what is planned. It must not mark the project COMPLETE until the public product, AWS infrastructure, CI/CD, observability, and live verification criteria in the master build prompt are actually proven.
@@ -29,17 +29,19 @@ Phase 1 is complete when:
 - Local Go API (`go run ./cmd/api`)
 - Domain model: Service, Dependency, Release, Deployment, Commit, CIRun, HealthSnapshot, Incident, ReleaseEvent, ReleaseDecision
 - In-memory persistence with duplicate-identity rejection
+- DynamoDB single-table adapter (AWS SDK v2) behind `repository.Store`; `APP_STORE=memory|dynamodb`
+- Conditional EventID writes; timeline query by release
 - Local catalog seed (synthetic Northstar + live service identities, no invented live releases)
 - Versioned read APIs for health, readiness, services, releases
 
-Not implemented: DynamoDB, EventBridge, SQS, risk/health/graph/policy/rollback engines, Angular, Terraform, GitHub Actions.
+Not implemented: production DynamoDB, EventBridge, SQS, risk/health/graph/policy/rollback engines, Angular, Terraform, GitHub Actions.
 
 ## Test status
 
 | Suite | Status |
 | --- | --- |
 | Go unit tests | PASSING (local) |
-| Go integration tests | NOT STARTED (no DynamoDB yet) |
+| Go integration tests | TESTED against DynamoDB-compatible fake (not DynamoDB Local) |
 | Angular unit tests | NOT STARTED |
 | Cypress E2E | NOT STARTED |
 | k6 performance | NOT STARTED |
@@ -58,6 +60,7 @@ Not implemented: DynamoDB, EventBridge, SQS, risk/health/graph/policy/rollback e
 ## Known limitations
 
 - Persistence is process-local. Restart wipes state except what `localseed` reloads.
+- DynamoDB adapter is TESTED against an in-process compatible fake. Docker/Java are unavailable, so DynamoDB Local was not run.
 - No AWS resources. Readiness reports `in_memory_store` only.
 - No ingestion API, webhooks, or async worker.
 - No risk/health/graph/policy/rollback computation.
@@ -81,7 +84,7 @@ Not implemented: DynamoDB, EventBridge, SQS, risk/health/graph/policy/rollback e
 
 ## Remaining work
 
-**Phase 2 — DynamoDB + event persistence** (local/dev first, still no production AWS apply): implement the same `repository.Store` against DynamoDB (or DynamoDB local), persist events with `event_id` conditional writes, keep domain types free of PK/SK.
+**Phase 3 — Angular operations console** connected to the local Go API.
 
 ## Phase tracker
 
@@ -89,7 +92,7 @@ Not implemented: DynamoDB, EventBridge, SQS, risk/health/graph/policy/rollback e
 | --- | --- | --- |
 | 0 | Architecture and repository foundation | COMPLETE |
 | 1 | Core domain models + Go API | COMPLETE |
-| 2 | DynamoDB + event persistence | PLANNED |
+| 2 | DynamoDB + event persistence | COMPLETE |
 | 3 | Angular operations console | PLANNED |
 | 4 | Release Risk Engine | PLANNED |
 | 5 | EventBridge + SQS asynchronous processing | PLANNED |

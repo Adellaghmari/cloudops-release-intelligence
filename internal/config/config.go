@@ -10,26 +10,34 @@ import (
 )
 
 type Config struct {
-	Env           string
-	HTTPAddr      string
-	LogLevel      string
-	Version       string
-	ServiceName   string
-	CORSOrigins   []string
-	ShutdownWait  time.Duration
-	SeedLocalData bool
+	Env            string
+	HTTPAddr       string
+	LogLevel       string
+	Version        string
+	ServiceName    string
+	CORSOrigins    []string
+	ShutdownWait   time.Duration
+	SeedLocalData  bool
+	StoreDriver    string
+	DynamoTable    string
+	DynamoEndpoint string
+	AWSRegion      string
 }
 
 func Load() (Config, error) {
 	_ = loadDotEnv(".env")
 	cfg := Config{
-		Env:           getenv("APP_ENV", "local"),
-		HTTPAddr:      getenv("APP_HTTP_ADDR", ":8080"),
-		LogLevel:      strings.ToLower(getenv("APP_LOG_LEVEL", "info")),
-		Version:       getenv("APP_VERSION", "0.1.0-dev"),
-		ServiceName:   getenv("APP_SERVICE_NAME", "cloudops-api"),
-		ShutdownWait:  10 * time.Second,
-		SeedLocalData: true,
+		Env:            getenv("APP_ENV", "local"),
+		HTTPAddr:       getenv("APP_HTTP_ADDR", ":8080"),
+		LogLevel:       strings.ToLower(getenv("APP_LOG_LEVEL", "info")),
+		Version:        getenv("APP_VERSION", "0.1.0-dev"),
+		ServiceName:    getenv("APP_SERVICE_NAME", "cloudops-api"),
+		ShutdownWait:   10 * time.Second,
+		SeedLocalData:  true,
+		StoreDriver:    getenv("APP_STORE", "memory"),
+		DynamoTable:    getenv("DDB_TABLE_NAME", "cloudops-main-local"),
+		DynamoEndpoint: getenv("AWS_ENDPOINT_URL", ""),
+		AWSRegion:      getenv("AWS_REGION", "eu-west-1"),
 	}
 	if v := os.Getenv("APP_SHUTDOWN_SECONDS"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -58,6 +66,11 @@ func Load() (Config, error) {
 	}
 	if cfg.HTTPAddr == "" {
 		return Config{}, fmt.Errorf("APP_HTTP_ADDR is required")
+	}
+	switch cfg.StoreDriver {
+	case "memory", "dynamodb":
+	default:
+		return Config{}, fmt.Errorf("APP_STORE must be memory or dynamodb")
 	}
 	return cfg, nil
 }
