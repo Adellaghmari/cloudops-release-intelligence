@@ -28,6 +28,7 @@ type Store struct {
 	risks       map[domain.ReleaseID]domain.RiskAssessment
 	scans       map[domain.ReleaseID]domain.SecurityScan
 	healthCmp   map[domain.ReleaseID]domain.HealthAssessment
+	policies    map[domain.ReleaseID]domain.PolicyEvaluation
 }
 
 func New() *Store {
@@ -45,6 +46,7 @@ func New() *Store {
 		risks:       map[domain.ReleaseID]domain.RiskAssessment{},
 		scans:       map[domain.ReleaseID]domain.SecurityScan{},
 		healthCmp:   map[domain.ReleaseID]domain.HealthAssessment{},
+		policies:    map[domain.ReleaseID]domain.PolicyEvaluation{},
 	}
 }
 
@@ -404,4 +406,21 @@ func (s *Store) GetHealthComparison(_ context.Context, releaseID domain.ReleaseI
 		return domain.HealthAssessment{}, domain.NotFoundError{Resource: "health", ID: releaseID.String()}
 	}
 	return a, nil
+}
+
+func (s *Store) PutPolicyEvaluation(_ context.Context, e domain.PolicyEvaluation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.policies[e.ReleaseID] = e
+	return nil
+}
+
+func (s *Store) GetPolicyEvaluation(_ context.Context, releaseID domain.ReleaseID) (domain.PolicyEvaluation, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	e, ok := s.policies[releaseID]
+	if !ok {
+		return domain.PolicyEvaluation{}, domain.NotFoundError{Resource: "policy", ID: releaseID.String()}
+	}
+	return e, nil
 }

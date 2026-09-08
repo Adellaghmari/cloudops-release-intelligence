@@ -10,6 +10,7 @@ import {
   ReleaseListResponse,
   HealthCompareResponse,
   ImpactResponse,
+  PolicyResponse,
   RiskResponse,
   ServiceDetailResponse,
   ServiceListResponse,
@@ -78,6 +79,12 @@ export class ApiService {
   getRisk(id: string): Observable<RiskResponse> {
     return this.http
       .get<RiskResponse>(`${this.base}/releases/${encodeURIComponent(id)}/risk`)
+      .pipe(catchError(toApiError));
+  }
+
+  getPolicy(id: string): Observable<PolicyResponse> {
+    return this.http
+      .get<PolicyResponse>(`${this.base}/releases/${encodeURIComponent(id)}/policy`)
       .pipe(catchError(toApiError));
   }
 

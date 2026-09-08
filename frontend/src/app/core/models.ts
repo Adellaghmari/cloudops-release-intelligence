@@ -163,6 +163,23 @@ export interface HealthCompareResponse {
   disclaimer: string;
 }
 
+export interface PolicyRule {
+  id: string;
+  result: string;
+  message: string;
+  input_excerpt: string;
+  skipped: boolean;
+}
+
+export interface PolicyResponse {
+  release_id: string;
+  policy_version: string;
+  result: string;
+  phase: string;
+  rules: PolicyRule[];
+  evaluated_at: string;
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;

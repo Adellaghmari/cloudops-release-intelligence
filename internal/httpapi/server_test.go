@@ -215,6 +215,22 @@ func TestNotFoundAndSourceFilter(t *testing.T) {
 	}
 }
 
+func TestReleasePolicy(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/releases/rel_northstar_payments_demo/policy", nil)
+	testServer(t).ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatal(rec.Body.String())
+	}
+	var body policyResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Result == "" || body.PolicyVersion == "" || len(body.Rules) == 0 {
+		t.Fatalf("%+v", body)
+	}
+}
+
 func TestReleaseImpact(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/releases/rel_northstar_payments_demo/impact", nil)

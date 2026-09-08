@@ -157,6 +157,29 @@ func (h *Handler) GetReleaseRisk(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetReleasePolicy(c *gin.Context) {
+	id, err := domain.ParseReleaseID(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid release id")
+		return
+	}
+	e, err := h.catalog.EvaluatePolicy(c.Request.Context(), id, time.Now().UTC())
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	rules := make([]policyRuleJSON, 0, len(e.Rules))
+	for _, r := range e.Rules {
+		rules = append(rules, policyRuleJSON{
+			ID: r.ID, Result: r.Result, Message: r.Message, InputExcerpt: r.InputExcerpt, Skipped: r.Skipped,
+		})
+	}
+	c.JSON(http.StatusOK, policyResponse{
+		ReleaseID: e.ReleaseID.String(), PolicyVersion: e.PolicyVersion, Result: e.Result,
+		Phase: e.Phase, Rules: rules, EvaluatedAt: e.EvaluatedAt,
+	})
+}
+
 func (h *Handler) GetReleaseImpact(c *gin.Context) {
 	id, err := domain.ParseReleaseID(c.Param("id"))
 	if err != nil {

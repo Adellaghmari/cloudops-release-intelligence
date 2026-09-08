@@ -565,6 +565,34 @@ func (s *Store) GetHealthComparison(ctx context.Context, releaseID domain.Releas
 	return a, nil
 }
 
+func (s *Store) PutPolicyEvaluation(ctx context.Context, e domain.PolicyEvaluation) error {
+	raw, err := encodePayload(e)
+	if err != nil {
+		return wrapErr("put_policy", err)
+	}
+	item, err := marshalRecord(record{PK: releasePK(e.ReleaseID), SK: "POLICY#LATEST", EntityType: "POLICY", Payload: raw})
+	if err != nil {
+		return wrapErr("put_policy", err)
+	}
+	_, err = s.api.PutItem(ctx, &dynamodb.PutItemInput{TableName: aws.String(s.table), Item: item})
+	return wrapErr("put_policy", err)
+}
+
+func (s *Store) GetPolicyEvaluation(ctx context.Context, releaseID domain.ReleaseID) (domain.PolicyEvaluation, error) {
+	rec, err := s.get(ctx, releasePK(releaseID), "POLICY#LATEST")
+	if err != nil {
+		if domain.IsNotFound(err) {
+			return domain.PolicyEvaluation{}, domain.NotFoundError{Resource: "policy", ID: releaseID.String()}
+		}
+		return domain.PolicyEvaluation{}, err
+	}
+	var e domain.PolicyEvaluation
+	if err := decodePayload(rec.Payload, &e); err != nil {
+		return domain.PolicyEvaluation{}, wrapErr("get_policy", err)
+	}
+	return e, nil
+}
+
 func (s *Store) CreateDecision(ctx context.Context, d domain.ReleaseDecision) error {
 	d = d.Normalized()
 	if err := d.Validate(); err != nil {

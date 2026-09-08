@@ -23,6 +23,7 @@ export class ReleaseDetailPage {
         risk: this.api.getRisk(id).pipe(catchError(() => of(null))),
         health: this.api.getHealth(id).pipe(catchError(() => of(null))),
         impact: this.api.getImpact(id).pipe(catchError(() => of(null))),
+        policy: this.api.getPolicy(id).pipe(catchError(() => of(null))),
       }).pipe(
         map((data) => ({ state: 'ready' as const, ...data, error: '' })),
         catchError((err) =>
@@ -32,6 +33,7 @@ export class ReleaseDetailPage {
             risk: null,
             health: null,
             impact: null,
+            policy: null,
             error: err.message,
           }),
         ),
