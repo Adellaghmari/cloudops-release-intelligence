@@ -47,7 +47,7 @@ func CORSMiddleware(origins []string) gin.HandlerFunc {
 			c.Header("Vary", "Origin")
 			c.Header("Access-Control-Allow-Headers", "Content-Type, X-Request-ID, X-Correlation-ID")
 			c.Header("Access-Control-Expose-Headers", "X-Request-ID, X-Correlation-ID")
-			c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		}
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)

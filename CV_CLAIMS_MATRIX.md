@@ -30,30 +30,32 @@ This remains a portfolio project. It is not professional work experience.
 
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
-| AWS Lambda | PLANNED | Terraform-applied functions serving traffic | None |
-| Amazon API Gateway | PLANNED | Public HTTPS API | None |
-| Amazon DynamoDB | TESTED | Production table with real items | Adapter + single-table mapping + conditional EventID writes tested against a local DynamoDB-compatible fake. No production table. Not DynamoDB Local (Docker/Java unavailable). |
-| Amazon S3 | PLANNED | Frontend origin and/or raw event objects | None |
-| Amazon CloudFront | PLANNED | Public site URL | None |
-| Amazon EventBridge | PLANNED | Custom bus receiving real events | Local `events.Bus` port + MemoryBus only. No EventBridge resource. Not AWS verified. |
-| Amazon SQS | PLANNED | Worker consuming analysis queue + DLQ | Local Processor + in-memory DLQ. No SQS queue. Not AWS verified. |
-| Amazon ECR | PLANNED | Immutable image digest deployed to Lambda | None |
-| Amazon CloudWatch | PLANNED | Production logs/metrics in the account | None |
-| AWS X-Ray | PLANNED | Traces for API and worker | None |
-| AWS IAM least privilege | PLANNED | Applied roles with scoped policies | None |
-| GitHub OIDC to AWS | PLANNED | Workflows assume role without static keys | None |
+| AWS Lambda | IMPLEMENTED | Terraform-applied functions serving traffic | `cmd/api` Lambda adapter + `cmd/worker` + Terraform image functions. Not applied. |
+| Amazon API Gateway | IMPLEMENTED | Public HTTPS API | HTTP API Terraform. Not applied. |
+| Amazon DynamoDB | TESTED | Production table with real items | Adapter + single-table mapping + conditional EventID writes + reset/evidence tests against a local DynamoDB-compatible fake. No production table. |
+| Amazon S3 | IMPLEMENTED | Frontend origin and/or raw event objects | Terraform web + raw buckets; Go raw-evidence writer. Not applied. |
+| Amazon CloudFront | IMPLEMENTED | Public site URL | Terraform distribution + OAC. Not applied. |
+| Amazon EventBridge | IMPLEMENTED | Custom bus receiving real events | Go PutEvents adapter + Terraform bus/rule. Not AWS verified. |
+| Amazon SQS | IMPLEMENTED | Worker consuming analysis queue + DLQ | Worker Lambda + Terraform queue/DLQ (`maxReceiveCount=3`). Not AWS verified. |
+| Amazon ECR | IMPLEMENTED | Immutable image digest deployed to Lambda | Terraform repo (`IMMUTABLE` tags). No pushed digest. |
+| Amazon CloudWatch | IMPLEMENTED | Production logs/metrics in the account | 14-day log groups + DLQ alarm in Terraform. No live logs. |
+| AWS X-Ray | IMPLEMENTED | Traces for API and worker | Lambda `tracing_config = Active`. No real trace yet. |
+| AWS IAM least privilege | IMPLEMENTED | Applied roles with scoped policies | Terraform IAM for Lambda + GitHub OIDC. Not applied. |
+| GitHub OIDC to AWS | IMPLEMENTED | Workflows assume role without static keys | Trust policies + `cd.yml`. Not LIVE VERIFIED until `sts get-caller-identity` succeeds in Actions. |
 | AWS Secrets Manager | PLANNED / MAY OMIT | Only if a real secret is required | Intentionally avoided unless necessary |
 
 ## Infrastructure, CI, DevSecOps
 
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
-| Terraform | PLANNED | `plan`/`apply` of the intended stack | None |
-| GitHub Actions CI | PLANNED | Successful workflow runs on the repo | None |
-| GitHub Actions CD | PLANNED | Staging/prod deploy from main | None |
-| Trivy scanning | PLANNED | Workflow step that can fail the build | None |
-| Syft SBOM | PLANNED | Generated artifact attached to release/build | None |
-| Cosign keyless signing | PLANNED | Signed ECR image verified in CI | None |
+| Terraform | IMPLEMENTED | `plan`/`apply` of the intended stack | `infra/` written, fmt/validate in CI. Not applied. |
+| GitHub Actions CI | IMPLEMENTED | Successful workflow runs on the repo | `.github/workflows/ci.yml` on Ubuntu. No green run until the GitHub remote exists. |
+| GitHub Actions CD | IMPLEMENTED | Staging/prod deploy from main | `cd.yml` OIDC + digest push. Gated on `AWS_DEPLOY_ROLE_ARN`. |
+| Trivy scanning | IMPLEMENTED | Workflow step that can fail the build | fs + config + image in CI. No recorded result yet. |
+| Syft SBOM | IMPLEMENTED | Generated artifact attached to release/build | `anchore/sbom-action` in CI. Not generated locally. |
+| Cosign keyless signing | IMPLEMENTED | Signed ECR image verified in CI | `cosign sign` in CD after push. Not verified. |
+| Linux | IMPLEMENTED | Real Ubuntu CI + Linux OCI/Lambda runtime | Dockerfile, scripts, Actions `ubuntu-latest`. Not LIVE VERIFIED until Lambda serves traffic. Workstation has no Docker. |
+| Docker / OCI containers | IMPLEMENTED | Multi-stage image, non-root, digest identity | Dockerfile + CI inspect. Not pushed to ECR. |
 | Open Policy Agent / Rego | TESTED | Policies execute against real release input | `policies/release_gate.rego` evaluated in-process via opa/v1/rego. Local only. |
 
 ## Product capabilities
@@ -68,10 +70,10 @@ This remains a portfolio project. It is not professional work experience.
 | Rollback Readiness | TESTED | READY/PARTIAL/NOT READY/UNKNOWN + missing prereqs | `internal/rollback` + GET /releases/:id/rollback. No auto rollback. Local only. |
 | Release Replay | TESTED | Deterministic diff of two persisted releases | GET /replay + Angular Replay page. Local only. |
 | Release evidence timeline | TESTED | Chronological events from storage | GET /releases/:id/timeline from persisted events. Local only. |
-| Event-driven analysis | TESTED | Ingest → EventBridge → SQS → worker, not in-request theatre | Local envelope + Processor + POST /events + MemoryBus. EventBridge/SQS path not built. Not AWS verified. |
+| Event-driven analysis | TESTED | Ingest → EventBridge → SQS → worker, not in-request theatre | Local processor still TESTED. AWS path IMPLEMENTED (adapters + Terraform), not AWS verified. |
 | Idempotent ingestion | TESTED | Duplicate event_id does not double-apply | Processor + memory/DynamoDB conditional CreateEvent + HTTP 200 duplicate. Local only. |
-| Public recruiter demo | PLANNED | Unauthenticated synthetic scenarios through real logic | Spec only |
-| Self-dogfooding CI evidence | PLANNED | This repo's real SHA/run/deploy metadata visible in-product | Spec only |
+| Public recruiter demo | IMPLEMENTED | Unauthenticated synthetic scenarios through real logic | Local console + `POST /demo/reset`. Not publicly deployed. |
+| Self-dogfooding CI evidence | IMPLEMENTED | This repo's real SHA/run/deploy metadata visible in-product | `GET /status` + live evidence ingest. No live rows until a real pipeline event is posted. |
 
 ## Testing and reliability
 

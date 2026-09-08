@@ -5,7 +5,7 @@ import { DataSource } from '../core/models';
   selector: 'app-source-badge',
   template: `
     @if (source() === 'live') {
-      <span class="badge live">LIVE</span>
+      <span class="badge live">LIVE PROJECT DATA</span>
     } @else {
       <span class="badge synthetic">SYNTHETIC DEMO</span>
     }

@@ -10,34 +10,47 @@ import (
 )
 
 type Config struct {
-	Env            string
-	HTTPAddr       string
-	LogLevel       string
-	Version        string
-	ServiceName    string
-	CORSOrigins    []string
-	ShutdownWait   time.Duration
-	SeedLocalData  bool
-	StoreDriver    string
-	DynamoTable    string
-	DynamoEndpoint string
-	AWSRegion      string
+	Env               string
+	HTTPAddr          string
+	LogLevel          string
+	Version           string
+	ServiceName       string
+	CORSOrigins       []string
+	ShutdownWait      time.Duration
+	SeedLocalData     bool
+	StoreDriver       string
+	DynamoTable       string
+	DynamoEndpoint    string
+	AWSRegion         string
+	EventBusName      string
+	EventSource       string
+	RawEvidenceBucket string
+	GitSHA            string
+	EnsureDynamoTable bool
 }
 
 func Load() (Config, error) {
 	_ = loadDotEnv(".env")
 	cfg := Config{
-		Env:            getenv("APP_ENV", "local"),
-		HTTPAddr:       getenv("APP_HTTP_ADDR", ":8080"),
-		LogLevel:       strings.ToLower(getenv("APP_LOG_LEVEL", "info")),
-		Version:        getenv("APP_VERSION", "0.1.0-dev"),
-		ServiceName:    getenv("APP_SERVICE_NAME", "cloudops-api"),
-		ShutdownWait:   10 * time.Second,
-		SeedLocalData:  true,
-		StoreDriver:    getenv("APP_STORE", "memory"),
-		DynamoTable:    getenv("DDB_TABLE_NAME", "cloudops-main-local"),
-		DynamoEndpoint: getenv("AWS_ENDPOINT_URL", ""),
-		AWSRegion:      getenv("AWS_REGION", "eu-west-1"),
+		Env:               getenv("APP_ENV", "local"),
+		HTTPAddr:          getenv("APP_HTTP_ADDR", ":8080"),
+		LogLevel:          strings.ToLower(getenv("APP_LOG_LEVEL", "info")),
+		Version:           getenv("APP_VERSION", "0.1.0-dev"),
+		ServiceName:       getenv("APP_SERVICE_NAME", "cloudops-api"),
+		ShutdownWait:      10 * time.Second,
+		SeedLocalData:     true,
+		StoreDriver:       getenv("APP_STORE", "memory"),
+		DynamoTable:       getenv("DDB_TABLE_NAME", "cloudops-main-local"),
+		DynamoEndpoint:    getenv("AWS_ENDPOINT_URL", ""),
+		AWSRegion:         getenv("AWS_REGION", "eu-west-1"),
+		EventBusName:      getenv("EVENT_BUS_NAME", ""),
+		EventSource:       getenv("EVENT_SOURCE", "cloudops.release-intelligence"),
+		RawEvidenceBucket: getenv("S3_RAW_EVENTS_BUCKET", ""),
+		GitSHA:            getenv("GIT_SHA", ""),
+		EnsureDynamoTable: getenv("APP_DDB_ENSURE_TABLE", "") == "true" || getenv("APP_DDB_ENSURE_TABLE", "") == "1",
+	}
+	if cfg.DynamoEndpoint != "" {
+		cfg.EnsureDynamoTable = true
 	}
 	if v := os.Getenv("APP_SHUTDOWN_SECONDS"); v != "" {
 		n, err := strconv.Atoi(v)

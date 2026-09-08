@@ -4,8 +4,8 @@ import (
 	"context"
 	"sort"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/repository"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -20,6 +20,7 @@ type API interface {
 	TransactWriteItems(ctx context.Context, params *dynamodb.TransactWriteItemsInput, optFns ...func(*dynamodb.Options)) (*dynamodb.TransactWriteItemsOutput, error)
 	CreateTable(ctx context.Context, params *dynamodb.CreateTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error)
 	DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
+	DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
 }
 
 type Store struct {
@@ -619,6 +620,137 @@ func (s *Store) GetPolicyEvaluation(ctx context.Context, releaseID domain.Releas
 		return domain.PolicyEvaluation{}, wrapErr("get_policy", err)
 	}
 	return e, nil
+}
+
+func (s *Store) PutOperationalEvidence(ctx context.Context, ev domain.OperationalEvidence) error {
+	ev = ev.Normalized()
+	if err := ev.Validate(); err != nil {
+		return err
+	}
+	g2pk, g2sk := opsEvidenceGSI2(ev.RecordedAt, ev.ID)
+	return s.putNew(ctx, "operational_evidence", record{
+		PK: opsEvidencePK(), SK: opsEvidenceSK(ev.RecordedAt, ev.ID),
+		GSI2PK: g2pk, GSI2SK: g2sk, EntityType: "OPS_EVIDENCE",
+		Payload: mustPayload(opsEvidencePayload{
+			ID: ev.ID.String(), Kind: ev.Kind, GitSHA: ev.GitSHA, Branch: ev.Branch,
+			WorkflowName: ev.WorkflowName, WorkflowRunID: ev.WorkflowRunID, WorkflowResult: ev.WorkflowResult,
+			TestResult: ev.TestResult, BuildDurationMS: ev.BuildDurationMS, ImageDigest: ev.ImageDigest,
+			ArtifactID: ev.ArtifactID, SecurityScanResult: ev.SecurityScanResult,
+			DeploymentTimestamp: ev.DeploymentTimestamp, RecordedAt: ev.RecordedAt, Source: string(ev.Source),
+		}),
+	}, ev.ID.String())
+}
+
+func (s *Store) ListOperationalEvidence(ctx context.Context) ([]domain.OperationalEvidence, error) {
+	items, err := s.queryIndex(ctx, "GSI2", "GSI2PK = :pk", map[string]types.AttributeValue{
+		":pk": &types.AttributeValueMemberS{Value: "TYPE#OPS_EVIDENCE"},
+	}, false)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.OperationalEvidence, 0, len(items))
+	for _, rec := range items {
+		var p opsEvidencePayload
+		if err := decodePayload(rec.Payload, &p); err != nil {
+			return nil, wrapErr("list_ops_evidence", err)
+		}
+		out = append(out, domain.OperationalEvidence{
+			ID: domain.EventID(p.ID), Kind: p.Kind, GitSHA: p.GitSHA, Branch: p.Branch,
+			WorkflowName: p.WorkflowName, WorkflowRunID: p.WorkflowRunID, WorkflowResult: p.WorkflowResult,
+			TestResult: p.TestResult, BuildDurationMS: p.BuildDurationMS, ImageDigest: p.ImageDigest,
+			ArtifactID: p.ArtifactID, SecurityScanResult: p.SecurityScanResult,
+			DeploymentTimestamp: p.DeploymentTimestamp, RecordedAt: p.RecordedAt,
+			Source: domain.DataSource(p.Source),
+		}.Normalized())
+	}
+	return out, nil
+}
+
+func (s *Store) ResetSynthetic(ctx context.Context) error {
+	releases, err := s.ListReleases(ctx)
+	if err != nil {
+		return err
+	}
+	for _, rel := range releases {
+		if rel.Source != domain.DataSourceSynthetic {
+			continue
+		}
+		events, err := s.ListEventsByRelease(ctx, rel.ID)
+		if err != nil {
+			return err
+		}
+		for _, ev := range events {
+			if err := s.deleteKey(ctx, idemPK(ev.ID), metaSK()); err != nil {
+				return err
+			}
+		}
+		if err := s.deletePartition(ctx, releasePK(rel.ID)); err != nil {
+			return err
+		}
+	}
+	services, err := s.ListServices(ctx)
+	if err != nil {
+		return err
+	}
+	for _, svc := range services {
+		if svc.Source != domain.DataSourceSynthetic {
+			continue
+		}
+		incidents, err := s.ListIncidentsByService(ctx, svc.ID)
+		if err != nil {
+			return err
+		}
+		for _, inc := range incidents {
+			if err := s.deleteKey(ctx, incidentPK(inc.ID), metaSK()); err != nil {
+				return err
+			}
+		}
+		if err := s.deletePartition(ctx, servicePK(svc.ID)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) deletePartition(ctx context.Context, pk string) error {
+	items, err := s.queryAllPK(ctx, pk)
+	if err != nil {
+		return err
+	}
+	for _, rec := range items {
+		if err := s.deleteKey(ctx, rec.PK, rec.SK); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) deleteKey(ctx context.Context, pk, sk string) error {
+	_, err := s.api.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: pk},
+			"SK": &types.AttributeValueMemberS{Value: sk},
+		},
+	})
+	if err != nil {
+		return wrapErr("delete", err)
+	}
+	return nil
+}
+
+func (s *Store) queryAllPK(ctx context.Context, pk string) ([]record, error) {
+	out, err := s.api.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(s.table),
+		KeyConditionExpression: aws.String("PK = :pk"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk": &types.AttributeValueMemberS{Value: pk},
+		},
+	})
+	if err != nil {
+		return nil, wrapErr("query_all", err)
+	}
+	return decodeRecords(out.Items)
 }
 
 func (s *Store) CreateDecision(ctx context.Context, d domain.ReleaseDecision) error {

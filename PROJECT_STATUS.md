@@ -1,103 +1,90 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence
-**Phase:** 10 — Release Timeline + Release Replay
-**Status:** PHASE 10 COMPLETE (local)
+**Phase:** 11–15 preparation (code complete, AWS not applied)
+**Status:** IMPLEMENTATION IN REPOSITORY — NOTHING LIVE VERIFIED ON AWS
 **Complete:** No
 
 This file is the source of truth for what exists versus what is planned. It must not mark the project COMPLETE until the public product, AWS infrastructure, CI/CD, observability, and live verification criteria in the master build prompt are actually proven.
 
-## Current phase
+## Current truth
 
-Phase 1 is complete when:
+Locally TESTED (unchanged product engines plus new gates):
 
-- [x] Go module and idiomatic layout exist
-- [x] Typed identifiers for release, service, deployment, event, incident, and related entities
-- [x] Domain entities with validation and UTC timestamps
-- [x] Explicit `live` vs `synthetic` source on catalog/release/incident/health data
-- [x] Repository interfaces with no AWS/HTTP types
-- [x] In-memory repository
-- [x] Service layer (handlers do not own business lookups)
-- [x] Gin `/api/v1` health, ready, services, releases
-- [x] Structured JSON errors and request/correlation IDs
-- [x] Structured slog, graceful shutdown, config package
-- [x] `go fmt`, `go vet`, `go test ./...` pass
-- [x] Status and CV matrix updated (nothing LIVE VERIFIED)
+- Go, Gin, Angular 21, TypeScript, RxJS, SCSS
+- DynamoDB adapter (in-process fake)
+- Release risk, health comparison, correlation, graph, OPA/Rego, rollback, timeline, replay
+- Event ingest / idempotency / local DLQ
+- Cypress recruiter path (local)
+- Angular ESLint (`npx ng lint` passes)
+- Demo reset of synthetic Northstar only
+- Operational evidence store (live-only)
 
-## Implemented features
+NOT LIVE VERIFIED:
 
-- Local Go API (`go run ./cmd/api`)
-- Domain model: Service, Dependency, Release, Deployment, Commit, CIRun, HealthSnapshot, Incident, ReleaseEvent, ReleaseDecision
-- In-memory persistence with duplicate-identity rejection
-- DynamoDB single-table adapter (AWS SDK v2) behind `repository.Store`; `APP_STORE=memory|dynamodb`
-- Conditional EventID writes; timeline query by release
-- Local catalog seed (synthetic Northstar + live service identities, no invented live releases)
-- Versioned read APIs for health, readiness, services, releases
+- No public URL
+- No Terraform apply
+- No real DynamoDB / EventBridge / SQS / Lambda / CloudFront / ECR
+- No GitHub Actions run on the real repository until the remote exists and CI is green
+- No Linux container proof on this Windows workstation (Docker is not installed here)
 
-- Event envelope (`schema_version` 1.0), local `Processor`, `MemoryBus`, in-process DLQ
-- `POST /api/v1/events` with duplicate EventID detection (202 new / 200 duplicate)
-- Release Risk Engine (`internal/risk`) + GET `/releases/:id/risk`
-- Health comparator + release correlation (`internal/health`) + GET `/releases/:id/health`
-- Change impact graph (`internal/graph`) + GET `/releases/:id/impact` + SVG visualization
-- In-process OPA/Rego policy gate (`policies/` v1.0.0) + GET `/releases/:id/policy`
-- Rollback readiness (`internal/rollback`) + GET `/releases/:id/rollback` (decision support only)
-- Release timeline + replay (`internal/timeline`, `internal/replay`) + GET `/releases/:id/timeline` + GET `/replay`
-- Northstar synthetic scenarios (SAFE_RELEASE, RISKY_DATABASE_RELEASE, POST_DEPLOY_REGRESSION, DEPENDENCY_BLAST_RADIUS, SECURITY_BLOCK, ROLLBACK_NOT_READY)
-- Angular Release Detail sections + Replay page; Cypress recruiter path
-- Angular 21 operations console (local)
+## Implemented in this batch
 
-Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, Terraform, GitHub Actions, public demo hosting.
+- Angular ESLint (angular-eslint 21 + ESLint 9 flat config). Real `ng lint` run: 4 auto-fixable issues fixed, then clean.
+- Multi-stage Linux Dockerfile (build → Lambda `provided.al2023` + distroless HTTP)
+- Graceful shutdown runtime + unit test; CI scripts for SIGTERM / image inspect
+- Terraform for the approved `eu-west-1` serverless stack (not applied)
+- GitHub Actions Ubuntu CI/CD files (OIDC deploy gated on `AWS_DEPLOY_ROLE_ARN`)
+- `POST /api/v1/demo/reset` and `GET /api/v1/status`
+- Lambda HTTP adapter + SQS worker
+- EventBridge and S3 raw-evidence adapters
+- Frontend System Status + LIVE PROJECT DATA / SYNTHETIC DEMO labels
 
 ## Test status
 
 | Suite | Status |
 | --- | --- |
-| Go unit tests | PASSING (local) |
+| Go unit tests | Local quality gate required after this batch |
 | Go integration tests | TESTED against DynamoDB-compatible fake (not DynamoDB Local) |
-| Angular unit tests | PASSING locally (Phase 3) |
+| Angular lint | PASSING locally |
+| Angular unit tests | PASSING locally |
+| Angular production build | PASSING locally |
 | Cypress E2E | TESTED locally (recruiter path; not public) |
+| Terraform validate | Written; run in CI / local when Terraform CLI is available |
 | k6 performance | NOT STARTED |
-| Terraform validate | NOT STARTED |
 
 ## Deployment status
 
 | Environment | Status |
 | --- | --- |
 | Local | IMPLEMENTED (in-memory) |
-| Staging | NOT STARTED |
-| Production | NOT STARTED |
+| Staging | NOT USED (portfolio is local → prod) |
+| Production | NOT STARTED (no apply) |
 | Public frontend | NOT STARTED |
 | Public API | NOT STARTED |
 
 ## Known limitations
 
-- Persistence is process-local. Restart wipes state except what `localseed` reloads.
-- DynamoDB adapter is TESTED against an in-process compatible fake. Docker/Java are unavailable, so DynamoDB Local was not run.
-- No AWS resources. Readiness reports `in_memory_store` only.
-- EventBridge and SQS are not executed. `MemoryBus` is in-process only. Not LIVE VERIFIED.
-- LocalStack was not used (Docker unavailable).
-- No webhooks. GitHub signature verification is specified, not implemented.
-- Public CloudFront/S3 hosting and demo reset API are not implemented.
-- Module path `github.com/adell/cloudops-release-intelligence` is a placeholder until the public remote exists.
-- Go toolchain is **1.27.0**. Angular is 21 (Node 22.14.0; Angular 22 needs ≥22.22.3).
-- Default local git branch is `main`. No GitHub remote yet.
+- Persistence is process-local unless `APP_STORE=dynamodb` and a real table exist.
+- DynamoDB adapter is TESTED against an in-process compatible fake. Docker/Java are unavailable on the Windows workstation, so DynamoDB Local was not run.
+- EventBridge/SQS adapters are code + Terraform only. Not AWS verified.
+- CloudFront serves the SPA only. The public API URL is API Gateway (avoids a Terraform cycle with Lambda CORS).
+- First Terraform apply uses **local state**. See `docs/TERRAFORM_STATE.md` and `docs/COST_CHECKPOINT.md`.
+- Cosign keyless signing is wired in CD after an image exists. Not proven until that job runs.
+- Linux container behaviour is proven in GitHub Ubuntu CI, not on this laptop.
+- Module path is normalized to the intended GitHub repository when the remote exists.
 
-## Known security limitations
+## Remaining work before LIVE VERIFIED
 
-- Public write surface does not exist yet.
-- GitHub webhook signature verification is specified, not implemented.
-- OIDC trust is specified, not implemented.
-- Local CORS allowlist is localhost-only by default.
-- No secrets exist in the repository. Keep it that way.
+1. Create/push the real GitHub repository (this session, if `gh` succeeds)
+2. User AWS login
+3. Cost checkpoint approval
+4. `terraform apply` (no image → no Lambda yet)
+5. CI image push + second apply with digest
+6. Public Cypress + six Northstar scenarios through the deployed API
+7. Real EventBridge/SQS/DLQ/X-Ray/OIDC evidence
 
-## Known cost limitations
-
-- No AWS bill yet.
-- Cost estimate remains valid only if later phases keep the serverless exclusions in [docs/COST.md](docs/COST.md).
-
-## Remaining work
-
-**Phase 11 — Real GitHub Actions / self dogfooding** (not started; this batch stops at Phase 10).
+Phase 16 is not started.
 
 ## Phase tracker
 
@@ -114,11 +101,11 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, Terraform, G
 | 8 | OPA / Release Policy Gate | COMPLETE (local) |
 | 9 | Rollback Readiness | COMPLETE (local) |
 | 10 | Release Timeline + Release Replay | COMPLETE (local) |
-| 11 | Real GitHub Actions / self dogfooding | PLANNED |
-| 12 | AWS infrastructure with Terraform | PLANNED |
-| 13 | CI/CD + OIDC + DevSecOps | PLANNED |
-| 14 | CloudWatch / X-Ray observability | PLANNED |
-| 15 | Public synthetic recruiter demo | PLANNED |
-| 16 | Security / reliability / performance hardening | PLANNED |
-| 17 | Full live verification | PLANNED |
-| 18 | GitHub repository finalization | PLANNED |
+| 11 | Real GitHub + self dogfooding | IMPLEMENTED in repo; LIVE VERIFIED pending remote + green Actions |
+| 12 | AWS infrastructure with Terraform | IMPLEMENTED in repo; apply not run |
+| 13 | CI/CD + OIDC + DevSecOps | IMPLEMENTED in repo; not executed on GitHub yet |
+| 14 | CloudWatch / X-Ray | IMPLEMENTED in Terraform; no traces yet |
+| 15 | Public synthetic recruiter demo | IMPLEMENTED locally; not publicly deployed |
+| 16 | Security / reliability / performance hardening | NOT STARTED |
+| 17 | Full live verification | NOT STARTED |
+| 18 | GitHub repository finalization | IN PROGRESS |

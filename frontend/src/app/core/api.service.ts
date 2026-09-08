@@ -17,6 +17,7 @@ import {
   TimelineResponse,
   ServiceDetailResponse,
   ServiceListResponse,
+  SystemStatusResponse,
 } from './models';
 
 export class ApiFailure extends Error {
@@ -42,6 +43,10 @@ export class ApiService {
 
   ready(): Observable<ReadyResponse> {
     return this.http.get<ReadyResponse>(`${this.base}/ready`).pipe(catchError(toApiError));
+  }
+
+  status(): Observable<SystemStatusResponse> {
+    return this.http.get<SystemStatusResponse>(`${this.base}/status`).pipe(catchError(toApiError));
   }
 
   listServices(source?: string): Observable<ServiceListResponse> {
@@ -92,7 +97,7 @@ export class ApiService {
   }
 
   replay(a: string, b: string): Observable<ReplayResponse> {
-    let params = new HttpParams().set('a', a).set('b', b);
+    const params = new HttpParams().set('a', a).set('b', b);
     return this.http.get<ReplayResponse>(`${this.base}/replay`, { params }).pipe(catchError(toApiError));
   }
 

@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/repository"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository"
 )
 
 // Bus is the application port. LocalMemoryBus exercises async semantics
@@ -22,9 +22,14 @@ type ProcessResult struct {
 	Pending   bool
 }
 
+type Analyzer interface {
+	AnalyzeRelease(ctx context.Context, id domain.ReleaseID) error
+}
+
 type Processor struct {
 	store     repository.Store
 	maxRetry  int
+	analyzer  Analyzer
 	mu        sync.Mutex
 	attempts  map[domain.EventID]int
 	dlq       []Envelope
@@ -42,6 +47,8 @@ func NewProcessor(store repository.Store, maxRetry int) *Processor {
 	}
 }
 
+func (p *Processor) SetAnalyzer(a Analyzer) { p.analyzer = a }
+
 // TriggersAnalysis is false for policy.evaluated so an evaluation event
 // cannot re-enter the analysis worker and loop.
 func TriggersAnalysis(t domain.EventType) bool {
@@ -58,6 +65,16 @@ func (p *Processor) Handle(ctx context.Context, e Envelope, now time.Time) (Proc
 	dom := ToDomain(e)
 	err := p.store.CreateEvent(ctx, dom)
 	if domain.IsAlreadyExists(err) {
+		if ev, ok := EvidenceFromEnvelope(e); ok {
+			if putErr := p.store.PutOperationalEvidence(ctx, ev); putErr != nil && !domain.IsAlreadyExists(putErr) {
+				return ProcessResult{}, putErr
+			}
+		}
+		if p.analyzer != nil && e.ReleaseID != nil && TriggersAnalysis(e.EventType) {
+			if anErr := p.analyzer.AnalyzeRelease(ctx, *e.ReleaseID); anErr != nil && !domain.IsNotFound(anErr) {
+				return ProcessResult{}, anErr
+			}
+		}
 		return ProcessResult{Duplicate: true, Reason: "duplicate event_id"}, nil
 	}
 	if err != nil {
@@ -76,8 +93,18 @@ func (p *Processor) Handle(ctx context.Context, e Envelope, now time.Time) (Proc
 			return ProcessResult{Pending: true, Reason: "release not found yet; out of order tolerated"}, nil
 		}
 	}
+	if ev, ok := EvidenceFromEnvelope(e); ok {
+		if err := p.store.PutOperationalEvidence(ctx, ev); err != nil && !domain.IsAlreadyExists(err) {
+			return ProcessResult{}, err
+		}
+	}
 	if !TriggersAnalysis(e.EventType) {
 		return ProcessResult{Reason: "timeline only; analysis not dispatched"}, nil
+	}
+	if p.analyzer != nil && e.ReleaseID != nil {
+		if err := p.analyzer.AnalyzeRelease(ctx, *e.ReleaseID); err != nil && !domain.IsNotFound(err) {
+			return ProcessResult{}, err
+		}
 	}
 	p.mu.Lock()
 	p.processed[e.EventID] = struct{}{}

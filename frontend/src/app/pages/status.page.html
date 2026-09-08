@@ -1,0 +1,51 @@
+<h1>System Status</h1>
+<p>This page shows genuine Project B operational metadata when it exists. It does not invent releases.</p>
+@if (vm$ | async; as vm) {
+  @if (vm.state === 'loading') {
+    <p class="status" role="status">Loading system status…</p>
+  } @else if (vm.state === 'error') {
+    <p class="error" role="alert">{{ vm.error }}</p>
+  } @else if (vm.status) {
+    <p>
+      <span class="badge live">LIVE PROJECT DATA</span>
+      only appears below when a real pipeline or deploy event has been ingested.
+    </p>
+    <dl class="facts">
+      <div><dt>Service</dt><dd>{{ vm.status.service }} {{ vm.status.version }}</dd></div>
+      <div><dt>Store</dt><dd class="mono">{{ vm.status.store }}</dd></div>
+      @if (vm.status.git_sha) {
+        <div><dt>Process git SHA</dt><dd class="mono">{{ vm.status.git_sha }}</dd></div>
+      }
+    </dl>
+    <p class="muted">{{ vm.status.synthetic_demo_note }}</p>
+    <h2>Live Project Data</h2>
+    @if (vm.status.live_project_data.length === 0) {
+      <p>No live Project B evidence has been recorded yet. Northstar rows remain <strong>SYNTHETIC DEMO</strong>.</p>
+    } @else {
+      <table>
+        <thead>
+          <tr>
+            <th>Kind</th>
+            <th>Git SHA</th>
+            <th>Workflow</th>
+            <th>Result</th>
+            <th>Digest</th>
+            <th>When</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of vm.status.live_project_data; track row.id) {
+            <tr>
+              <td><span class="badge live">{{ row.label }}</span> {{ row.kind }}</td>
+              <td class="mono">{{ row.git_sha || '—' }}</td>
+              <td class="mono">{{ row.workflow_run_id || '—' }}</td>
+              <td>{{ row.workflow_result || row.test_result || row.security_scan_result || '—' }}</td>
+              <td class="mono">{{ row.image_digest || row.artifact_id || '—' }}</td>
+              <td>{{ row.recorded_at | date: 'medium' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  }
+}

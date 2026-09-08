@@ -1,6 +1,6 @@
 package graph
 
-import "github.com/adell/cloudops-release-intelligence/internal/domain"
+import "github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
 
 type Edge struct {
 	From domain.ServiceID

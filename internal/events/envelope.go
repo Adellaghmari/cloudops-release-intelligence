@@ -4,22 +4,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
 )
 
 const CurrentSchema = "1.0"
 
 type Envelope struct {
-	EventID       domain.EventID
-	EventType     domain.EventType
-	OccurredAt    time.Time
-	ReceivedAt    time.Time
-	CorrelationID string
-	ReleaseID     *domain.ReleaseID
-	ServiceID     *domain.ServiceID
-	Source        domain.EventProducer
-	SchemaVersion string
-	Payload       map[string]string
+	EventID       domain.EventID       `json:"event_id"`
+	EventType     domain.EventType     `json:"event_type"`
+	OccurredAt    time.Time            `json:"occurred_at"`
+	ReceivedAt    time.Time            `json:"received_at,omitempty"`
+	CorrelationID string               `json:"correlation_id,omitempty"`
+	ReleaseID     *domain.ReleaseID    `json:"release_id,omitempty"`
+	ServiceID     *domain.ServiceID    `json:"service_id,omitempty"`
+	Source        domain.EventProducer `json:"source"`
+	SchemaVersion string               `json:"schema_version"`
+	Payload       map[string]string    `json:"payload,omitempty"`
 }
 
 type ValidationResult struct {

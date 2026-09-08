@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/repository/memory"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository/memory"
 )
 
 func TestLoadDistinguishesLiveAndSynthetic(t *testing.T) {
@@ -53,6 +53,37 @@ func TestLoadDistinguishesLiveAndSynthetic(t *testing.T) {
 		if rel.Source != domain.DataSourceSynthetic || rel.Scenario == "" {
 			t.Fatalf("%s must be labeled synthetic scenario, got %+v", id, rel)
 		}
+	}
+}
+
+func TestReloadSyntheticIsIdempotentAndPreservesLive(t *testing.T) {
+	ctx := context.Background()
+	store := memory.New()
+	now := time.Date(2026, 9, 8, 21, 0, 0, 0, time.UTC)
+	if err := Load(ctx, store, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.PutOperationalEvidence(ctx, domain.OperationalEvidence{
+		ID: "evt_live_keep", Kind: "pipeline", GitSHA: "abc1234", WorkflowRunID: "12",
+		RecordedAt: now, Source: domain.DataSourceLive,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ReloadSynthetic(ctx, store, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := ReloadSynthetic(ctx, store, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.GetService(ctx, "cloudops-api"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.GetRelease(ctx, "rel_northstar_payments_demo"); err != nil {
+		t.Fatal(err)
+	}
+	ops, err := store.ListOperationalEvidence(ctx)
+	if err != nil || len(ops) != 1 {
+		t.Fatalf("live evidence=%v err=%v", ops, err)
 	}
 }
 

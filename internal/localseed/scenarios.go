@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/repository"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository"
 )
 
 func seedScenarios(ctx context.Context, store repository.Store, now time.Time) error {

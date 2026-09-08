@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/health"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/health"
 )
 
 func (c *Catalog) CompareHealth(ctx context.Context, id domain.ReleaseID, now time.Time) (domain.HealthAssessment, error) {

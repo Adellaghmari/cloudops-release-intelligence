@@ -79,7 +79,7 @@ infra/
 .github/workflows/
 ```
 
-Go module: `github.com/adell/cloudops-release-intelligence` (placeholder until the public GitHub remote exists). Toolchain: Go 1.27.
+Go module: `github.com/Adellaghmari/cloudops-release-intelligence`. Toolchain: Go 1.27.
 
 HTTP handlers must not contain scoring, graph, or policy logic. AWS SDK calls must not leak into `internal/domain` or the engine packages.
 

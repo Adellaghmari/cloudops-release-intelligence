@@ -259,3 +259,37 @@ type eventIngestResponse struct {
 	Pending   bool   `json:"pending,omitempty"`
 	Reason    string `json:"reason,omitempty"`
 }
+
+type demoResetResponse struct {
+	Status     string `json:"status"`
+	Reset      string `json:"reset"`
+	Idempotent bool   `json:"idempotent"`
+}
+
+type opsEvidenceJSON struct {
+	ID                  string     `json:"id"`
+	Kind                string     `json:"kind"`
+	GitSHA              string     `json:"git_sha,omitempty"`
+	Branch              string     `json:"branch,omitempty"`
+	WorkflowName        string     `json:"workflow_name,omitempty"`
+	WorkflowRunID       string     `json:"workflow_run_id,omitempty"`
+	WorkflowResult      string     `json:"workflow_result,omitempty"`
+	TestResult          string     `json:"test_result,omitempty"`
+	BuildDurationMS     *int       `json:"build_duration_ms,omitempty"`
+	ImageDigest         string     `json:"image_digest,omitempty"`
+	ArtifactID          string     `json:"artifact_id,omitempty"`
+	SecurityScanResult  string     `json:"security_scan_result,omitempty"`
+	DeploymentTimestamp *time.Time `json:"deployment_timestamp,omitempty"`
+	RecordedAt          time.Time  `json:"recorded_at"`
+	Source              string     `json:"source"`
+	Label               string     `json:"label"`
+}
+
+type systemStatusResponse struct {
+	Service           string            `json:"service"`
+	Version           string            `json:"version"`
+	GitSHA            string            `json:"git_sha,omitempty"`
+	Store             string            `json:"store"`
+	LiveProjectData   []opsEvidenceJSON `json:"live_project_data"`
+	SyntheticDemoNote string            `json:"synthetic_demo_note"`
+}

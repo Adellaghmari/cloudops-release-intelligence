@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/repository"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository"
 )
 
 // Load writes a small local catalog so GET endpoints are inspectable without AWS.
@@ -40,10 +40,22 @@ func seedServices(ctx context.Context, store repository.Store, now time.Time) er
 	}
 	for _, s := range services {
 		if err := store.CreateService(ctx, s); err != nil {
+			if domain.IsAlreadyExists(err) && s.Source == domain.DataSourceLive {
+				continue
+			}
 			return fmt.Errorf("seed service %s: %w", s.ID, err)
 		}
 	}
 	return nil
+}
+
+// ReloadSynthetic deletes Northstar synthetic rows and reseeds them.
+// Live CloudOps identities and operational evidence are left in place.
+func ReloadSynthetic(ctx context.Context, store repository.Store, now time.Time) error {
+	if err := store.ResetSynthetic(ctx); err != nil {
+		return err
+	}
+	return Load(ctx, store, now)
 }
 
 func seedDependencies(ctx context.Context, store repository.Store, now time.Time) error {

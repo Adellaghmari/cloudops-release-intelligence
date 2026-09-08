@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
 )
 
 func testStore(t *testing.T) *Store {
@@ -143,5 +143,68 @@ func TestPublicErrorsDoNotLeakAWS(t *testing.T) {
 	err := wrapErr("put_service", errors.New("AccessDeniedException: not authorized"))
 	if err == nil || err.Error() != "storage put_service failed" {
 		t.Fatalf("wrapped=%v", err)
+	}
+}
+
+func TestOperationalEvidenceAndResetPreserveLive(t *testing.T) {
+	ctx := context.Background()
+	s := testStore(t)
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	if err := s.CreateService(ctx, domain.Service{
+		ID: "cloudops-api", Name: "CloudOps API", Criticality: domain.CriticalityHigh,
+		Source: domain.DataSourceLive, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateService(ctx, domain.Service{
+		ID: "checkout-api", Name: "Checkout", Criticality: domain.CriticalityCritical,
+		Source: domain.DataSourceSynthetic, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rel := domain.Release{
+		ID: "rel_northstar_reset", ServiceID: "checkout-api", Version: "1.0.0", GitSHA: "abc1234",
+		Environment: domain.EnvironmentLocal, Status: domain.ReleaseStatusDeployed,
+		Source: domain.DataSourceSynthetic, CreatedAt: now,
+	}
+	if err := s.CreateRelease(ctx, rel); err != nil {
+		t.Fatal(err)
+	}
+	evID := domain.EventID("evt_reset_1")
+	if err := s.CreateEvent(ctx, domain.ReleaseEvent{
+		ID: evID, Type: domain.EventTypeDeploymentSucceeded, SchemaVersion: "1.0",
+		OccurredAt: now, IngestedAt: now, Producer: domain.EventProducerSynthetic,
+		CorrelationID: "corr_reset", ReleaseID: &rel.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PutOperationalEvidence(ctx, domain.OperationalEvidence{
+		ID: "evt_live_pipeline", Kind: "pipeline", GitSHA: "abcdef1", WorkflowRunID: "99",
+		WorkflowResult: "success", RecordedAt: now, Source: domain.DataSourceLive,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PutOperationalEvidence(ctx, domain.OperationalEvidence{
+		ID: "evt_live_pipeline", Kind: "pipeline", GitSHA: "abcdef1", WorkflowRunID: "99",
+		WorkflowResult: "success", RecordedAt: now, Source: domain.DataSourceLive,
+	}); !domain.IsAlreadyExists(err) {
+		t.Fatalf("expected duplicate evidence, got %v", err)
+	}
+	if err := s.ResetSynthetic(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetService(ctx, "checkout-api"); !domain.IsNotFound(err) {
+		t.Fatalf("synthetic service should be gone: %v", err)
+	}
+	if _, err := s.GetRelease(ctx, rel.ID); !domain.IsNotFound(err) {
+		t.Fatalf("synthetic release should be gone: %v", err)
+	}
+	live, err := s.GetService(ctx, "cloudops-api")
+	if err != nil || live.Source != domain.DataSourceLive {
+		t.Fatalf("live service=%v err=%v", live, err)
+	}
+	ops, err := s.ListOperationalEvidence(ctx)
+	if err != nil || len(ops) != 1 || ops[0].WorkflowRunID != "99" {
+		t.Fatalf("ops=%v err=%v", ops, err)
 	}
 }

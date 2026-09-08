@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
 )
 
 func sampleService(id, name string, source domain.DataSource) domain.Service {

@@ -1,15 +1,17 @@
 <h1>Architecture</h1>
-<p>This page lists only technologies that exist in this repository today.</p>
+<p>This page lists technologies that exist in this repository today. AWS rows stay planned until a real apply and live check exist.</p>
 <table>
   <thead>
-    <tr><th>Layer</th><th>In use now</th><th>Not yet</th></tr>
+    <tr><th>Layer</th><th>In use now</th><th>Not yet live</th></tr>
   </thead>
   <tbody>
-    <tr><td>Frontend</td><td>Angular 21, TypeScript, RxJS, SCSS</td><td>CloudFront production</td></tr>
-    <tr><td>Backend</td><td>Go 1.27, Gin, local API</td><td>Lambda / API Gateway</td></tr>
-    <tr><td>Persistence</td><td>Memory store + DynamoDB adapter (local fake tests)</td><td>Production DynamoDB</td></tr>
-    <tr><td>Events</td><td>Typed EventID + conditional writes</td><td>EventBridge / SQS</td></tr>
-    <tr><td>Analysis</td><td>Reserved on release detail</td><td>Risk, health, graph, OPA, rollback, replay</td></tr>
+    <tr><td>Frontend</td><td>Angular 21, TypeScript, RxJS, SCSS, ESLint</td><td>Public CloudFront/S3</td></tr>
+    <tr><td>Backend</td><td>Go, Gin, local API, Lambda/HTTP adapter</td><td>Public API Gateway</td></tr>
+    <tr><td>Persistence</td><td>Memory store + DynamoDB adapter</td><td>Production DynamoDB table</td></tr>
+    <tr><td>Events</td><td>Typed EventID, local processor, EventBridge/SQS adapters</td><td>AWS bus, queue, worker invoke</td></tr>
+    <tr><td>Analysis</td><td>Risk, health, correlation, graph, OPA/Rego, rollback, timeline, replay</td><td>Computed against live AWS data</td></tr>
+    <tr><td>Linux / containers</td><td>Multi-stage Dockerfile, non-root image, SIGTERM shutdown code</td><td>Deployed Lambda container on Amazon Linux</td></tr>
+    <tr><td>CI/CD</td><td>GitHub Actions workflow files (Ubuntu)</td><td>Green run + OIDC deploy</td></tr>
   </tbody>
 </table>
-<p class="muted">Nothing on this page is LIVE VERIFIED in AWS.</p>
+<p class="muted">Nothing on this page is LIVE VERIFIED in AWS until production evidence is recorded on System Status.</p>
