@@ -50,9 +50,33 @@
         <p class="muted">Risk assessment unavailable.</p>
       }
     </section>
-    <section class="reserved">
+    <section>
       <h2>Health</h2>
-      <p class="muted">Pre/post deployment comparison is not implemented yet. Empty windows will be INSUFFICIENT DATA, never silently stable.</p>
+      @if (vm.health) {
+        <p><strong>{{ vm.health.overall }}</strong> · {{ vm.health.correlation }}</p>
+        <p class="muted">{{ vm.health.disclaimer }}</p>
+        <ul>
+          @for (r of vm.health.reasons; track r) {
+            <li>{{ r }}</li>
+          }
+        </ul>
+        <table>
+          <thead><tr><th>Metric</th><th>Baseline</th><th>Post</th><th>Δ</th><th>Verdict</th></tr></thead>
+          <tbody>
+            @for (m of vm.health.metrics; track m.name) {
+              <tr>
+                <td>{{ m.name }}</td>
+                <td>{{ m.available ? m.baseline : '—' }}</td>
+                <td>{{ m.available ? m.post : '—' }}</td>
+                <td>{{ m.available ? m.abs_delta : '—' }}</td>
+                <td>{{ m.verdict }} — {{ m.reason }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="muted">Health comparison unavailable.</p>
+      }
     </section>
     <section class="reserved">
       <h2>Potential impact</h2>

@@ -520,6 +520,51 @@ func (s *Store) ListIncidentsByService(ctx context.Context, serviceID domain.Ser
 	return out, nil
 }
 
+func (s *Store) ListHealthSnapshotsByService(ctx context.Context, serviceID domain.ServiceID) ([]domain.HealthSnapshot, error) {
+	items, err := s.queryPK(ctx, servicePK(serviceID), "HEALTH#")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.HealthSnapshot, 0, len(items))
+	for _, rec := range items {
+		var p healthPayload
+		if err := decodePayload(rec.Payload, &p); err != nil {
+			return nil, wrapErr("list_health", err)
+		}
+		out = append(out, healthFrom(p).Normalized())
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].WindowStart.Before(out[j].WindowStart) })
+	return out, nil
+}
+
+func (s *Store) PutHealthComparison(ctx context.Context, a domain.HealthAssessment) error {
+	raw, err := encodePayload(a)
+	if err != nil {
+		return wrapErr("put_health_cmp", err)
+	}
+	item, err := marshalRecord(record{PK: releasePK(a.ReleaseID), SK: "HEALTH#COMPARISON", EntityType: "HEALTHCMP", Payload: raw})
+	if err != nil {
+		return wrapErr("put_health_cmp", err)
+	}
+	_, err = s.api.PutItem(ctx, &dynamodb.PutItemInput{TableName: aws.String(s.table), Item: item})
+	return wrapErr("put_health_cmp", err)
+}
+
+func (s *Store) GetHealthComparison(ctx context.Context, releaseID domain.ReleaseID) (domain.HealthAssessment, error) {
+	rec, err := s.get(ctx, releasePK(releaseID), "HEALTH#COMPARISON")
+	if err != nil {
+		if domain.IsNotFound(err) {
+			return domain.HealthAssessment{}, domain.NotFoundError{Resource: "health", ID: releaseID.String()}
+		}
+		return domain.HealthAssessment{}, err
+	}
+	var a domain.HealthAssessment
+	if err := decodePayload(rec.Payload, &a); err != nil {
+		return domain.HealthAssessment{}, wrapErr("get_health_cmp", err)
+	}
+	return a, nil
+}
+
 func (s *Store) CreateDecision(ctx context.Context, d domain.ReleaseDecision) error {
 	d = d.Normalized()
 	if err := d.Validate(); err != nil {

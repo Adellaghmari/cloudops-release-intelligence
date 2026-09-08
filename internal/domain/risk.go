@@ -65,6 +65,33 @@ func ParseSecuritySeverity(raw string) (SecuritySeverity, error) {
 	}
 }
 
+type HealthMetricResult struct {
+	Name      string
+	Baseline  float64
+	Post      float64
+	AbsDelta  float64
+	PctDelta  *float64
+	Threshold string
+	Verdict   string
+	Available bool
+	Reason    string
+}
+
+type HealthAssessment struct {
+	ReleaseID    ReleaseID
+	Overall      string
+	Correlation  string
+	Reasons      []string
+	Metrics      []HealthMetricResult
+	BaselineFrom time.Time
+	BaselineTo   time.Time
+	PostFrom     time.Time
+	PostTo       time.Time
+	ModelVersion string
+	ComparedAt   time.Time
+	Disclaimer   string
+}
+
 func CategoryForScore(score int) RiskCategory {
 	switch {
 	case score >= 75:

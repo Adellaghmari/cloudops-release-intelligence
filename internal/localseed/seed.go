@@ -114,6 +114,9 @@ func seedSyntheticRelease(ctx context.Context, store repository.Store, now time.
 		return err
 	}
 	svc := domain.ServiceID("payments-service")
+	if err := seedHealthPair(ctx, store, relID, svc, done, now, 400, 0.007, 0.9996, 182); err != nil {
+		return err
+	}
 	return store.CreateEvent(ctx, domain.ReleaseEvent{
 		ID:            "evt_northstar_payments_demo_deploy",
 		Type:          domain.EventTypeDeploymentSucceeded,
@@ -124,6 +127,26 @@ func seedSyntheticRelease(ctx context.Context, store repository.Store, now time.
 		CorrelationID: "req_local_seed",
 		ReleaseID:     &relID,
 		ServiceID:     &svc,
+	})
+}
+
+func seedHealthPair(ctx context.Context, store repository.Store, rel domain.ReleaseID, svc domain.ServiceID, deployed, now time.Time, req int, errRate, avail, p95 float64) error {
+	baseStart := deployed.Add(-60 * time.Minute)
+	postStart := deployed.Add(2 * time.Minute)
+	postEnd := deployed.Add(32 * time.Minute)
+	if err := store.CreateHealthSnapshot(ctx, domain.HealthSnapshot{
+		ID: domain.HealthSnapshotID("hlt_" + rel.String() + "_base"), ServiceID: svc, ReleaseID: &rel,
+		WindowKind: domain.HealthWindowBaseline, WindowStart: baseStart, WindowEnd: deployed,
+		RequestCount: req, ErrorRate: errRate, Availability: avail, LatencyP50MS: p95 * 0.7, LatencyP95MS: p95, LatencyP99MS: p95 * 1.2,
+		CapturedAt: deployed, Source: domain.DataSourceSynthetic,
+	}); err != nil {
+		return err
+	}
+	return store.CreateHealthSnapshot(ctx, domain.HealthSnapshot{
+		ID: domain.HealthSnapshotID("hlt_" + rel.String() + "_post"), ServiceID: svc, ReleaseID: &rel,
+		WindowKind: domain.HealthWindowPost, WindowStart: postStart, WindowEnd: postEnd,
+		RequestCount: req, ErrorRate: errRate, Availability: avail, LatencyP50MS: p95 * 0.7, LatencyP95MS: p95, LatencyP99MS: p95 * 1.2,
+		CapturedAt: now, Source: domain.DataSourceSynthetic,
 	})
 }
 

@@ -121,6 +121,33 @@ type releaseDetailResponse struct {
 	CIRun      *ciRunJSON      `json:"ci_run,omitempty"`
 }
 
+type healthMetricJSON struct {
+	Name      string   `json:"name"`
+	Baseline  float64  `json:"baseline"`
+	Post      float64  `json:"post"`
+	AbsDelta  float64  `json:"abs_delta"`
+	PctDelta  *float64 `json:"pct_delta,omitempty"`
+	Threshold string   `json:"threshold"`
+	Verdict   string   `json:"verdict"`
+	Available bool     `json:"available"`
+	Reason    string   `json:"reason"`
+}
+
+type healthCompareResponse struct {
+	ReleaseID    string             `json:"release_id"`
+	Overall      string             `json:"overall"`
+	Correlation  string             `json:"correlation"`
+	Reasons      []string           `json:"reasons"`
+	Metrics      []healthMetricJSON `json:"metrics"`
+	BaselineFrom time.Time          `json:"baseline_from"`
+	BaselineTo   time.Time          `json:"baseline_to"`
+	PostFrom     time.Time          `json:"post_from"`
+	PostTo       time.Time          `json:"post_to"`
+	ModelVersion string             `json:"model_version"`
+	ComparedAt   time.Time          `json:"compared_at"`
+	Disclaimer   string             `json:"disclaimer"`
+}
+
 type eventIngestRequest struct {
 	EventID       string            `json:"event_id"`
 	EventType     string            `json:"event_type"`

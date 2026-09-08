@@ -185,6 +185,22 @@ func releaseFrom(p releasePayload) domain.Release {
 	}
 }
 
+func healthFrom(p healthPayload) domain.HealthSnapshot {
+	var rid *domain.ReleaseID
+	if p.ReleaseID != nil {
+		id := domain.ReleaseID(*p.ReleaseID)
+		rid = &id
+	}
+	return domain.HealthSnapshot{
+		ID: domain.HealthSnapshotID(p.ID), ServiceID: domain.ServiceID(p.ServiceID), ReleaseID: rid,
+		WindowKind: domain.HealthWindowKind(p.WindowKind), WindowStart: p.WindowStart, WindowEnd: p.WindowEnd,
+		RequestCount: p.RequestCount, ErrorRate: p.ErrorRate, Availability: p.Availability,
+		LatencyP50MS: p.LatencyP50MS, LatencyP95MS: p.LatencyP95MS, LatencyP99MS: p.LatencyP99MS,
+		CPUPct: p.CPUPct, MemoryPct: p.MemoryPct, QueueBacklog: p.QueueBacklog,
+		CapturedAt: p.CapturedAt, Source: domain.DataSource(p.Source),
+	}
+}
+
 func eventFrom(p eventPayload) domain.ReleaseEvent {
 	var rel *domain.ReleaseID
 	var svc *domain.ServiceID
