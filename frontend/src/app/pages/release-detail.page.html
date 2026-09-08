@@ -29,9 +29,26 @@
       }
     </section>
 
-    <section class="reserved">
+    <section>
       <h2>Risk</h2>
-      <p class="muted">Risk scoring is not implemented yet. This section will show a transparent factor breakdown, not a failure probability.</p>
+      @if (vm.risk) {
+        <p><strong>{{ vm.risk.score }} / 100</strong> {{ vm.risk.category }}</p>
+        <p class="muted">{{ vm.risk.disclaimer }}</p>
+        <table>
+          <thead><tr><th>Factor</th><th>Points</th><th>Why</th></tr></thead>
+          <tbody>
+            @for (f of vm.risk.factors; track f.code) {
+              <tr>
+                <td>{{ f.label }}</td>
+                <td>{{ f.omitted ? '—' : '+' + f.points }}</td>
+                <td>{{ f.rationale }} <span class="mono muted">{{ f.input }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="muted">Risk assessment unavailable.</p>
+      }
     </section>
     <section class="reserved">
       <h2>Health</h2>

@@ -35,6 +35,7 @@ func NewEngine(cfg config.Config, catalog *service.Catalog, logger *slog.Logger)
 		v1.GET("/services/:id", h.GetService)
 		v1.GET("/releases", h.ListReleases)
 		v1.GET("/releases/:id", h.GetRelease)
+		v1.GET("/releases/:id/risk", h.GetReleaseRisk)
 	}
 	r.NoRoute(func(c *gin.Context) {
 		writeError(c, 404, "NOT_FOUND", "route not found")

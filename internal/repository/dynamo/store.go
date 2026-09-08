@@ -439,6 +439,87 @@ func (s *Store) ListEventsByRelease(ctx context.Context, releaseID domain.Releas
 	return out, nil
 }
 
+func (s *Store) PutRiskAssessment(ctx context.Context, a domain.RiskAssessment) error {
+	raw, err := encodePayload(a)
+	if err != nil {
+		return wrapErr("put_risk", err)
+	}
+	item, err := marshalRecord(record{PK: releasePK(a.ReleaseID), SK: "RISK#LATEST", EntityType: "RISK", Payload: raw})
+	if err != nil {
+		return wrapErr("put_risk", err)
+	}
+	_, err = s.api.PutItem(ctx, &dynamodb.PutItemInput{TableName: aws.String(s.table), Item: item})
+	return wrapErr("put_risk", err)
+}
+
+func (s *Store) GetRiskAssessment(ctx context.Context, releaseID domain.ReleaseID) (domain.RiskAssessment, error) {
+	rec, err := s.get(ctx, releasePK(releaseID), "RISK#LATEST")
+	if err != nil {
+		if domain.IsNotFound(err) {
+			return domain.RiskAssessment{}, domain.NotFoundError{Resource: "risk", ID: releaseID.String()}
+		}
+		return domain.RiskAssessment{}, err
+	}
+	var a domain.RiskAssessment
+	if err := decodePayload(rec.Payload, &a); err != nil {
+		return domain.RiskAssessment{}, wrapErr("get_risk", err)
+	}
+	return a, nil
+}
+
+func (s *Store) CreateSecurityScan(ctx context.Context, scan domain.SecurityScan) error {
+	raw, err := encodePayload(scan)
+	if err != nil {
+		return wrapErr("put_scan", err)
+	}
+	return s.putNew(ctx, "security_scan", record{
+		PK: releasePK(scan.ReleaseID), SK: "SCAN#" + scan.ID, EntityType: "SCAN", Payload: raw,
+	}, scan.ID)
+}
+
+func (s *Store) GetSecurityScanByRelease(ctx context.Context, releaseID domain.ReleaseID) (domain.SecurityScan, error) {
+	items, err := s.queryPK(ctx, releasePK(releaseID), "SCAN#")
+	if err != nil {
+		return domain.SecurityScan{}, err
+	}
+	if len(items) == 0 {
+		return domain.SecurityScan{}, domain.NotFoundError{Resource: "security_scan", ID: releaseID.String()}
+	}
+	var scan domain.SecurityScan
+	if err := decodePayload(items[0].Payload, &scan); err != nil {
+		return domain.SecurityScan{}, wrapErr("get_scan", err)
+	}
+	return scan, nil
+}
+
+func (s *Store) ListIncidentsByService(ctx context.Context, serviceID domain.ServiceID) ([]domain.Incident, error) {
+	items, err := s.queryIndex(ctx, "GSI1", "GSI1PK = :pk AND begins_with(GSI1SK, :sk)", map[string]types.AttributeValue{
+		":pk": &types.AttributeValueMemberS{Value: servicePK(serviceID)},
+		":sk": &types.AttributeValueMemberS{Value: "INCIDENT#"},
+	}, true)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Incident, 0, len(items))
+	for _, rec := range items {
+		var p incidentPayload
+		if err := decodePayload(rec.Payload, &p); err != nil {
+			return nil, wrapErr("list_incidents", err)
+		}
+		var rid *domain.ReleaseID
+		if p.ReleaseID != nil {
+			id := domain.ReleaseID(*p.ReleaseID)
+			rid = &id
+		}
+		out = append(out, domain.Incident{
+			ID: domain.IncidentID(p.ID), ServiceID: domain.ServiceID(p.ServiceID), ReleaseID: rid,
+			Title: p.Title, Status: domain.IncidentStatus(p.Status), OpenedAt: p.OpenedAt, ResolvedAt: p.ResolvedAt,
+			Source: domain.DataSource(p.Source),
+		}.Normalized())
+	}
+	return out, nil
+}
+
 func (s *Store) CreateDecision(ctx context.Context, d domain.ReleaseDecision) error {
 	d = d.Normalized()
 	if err := d.Validate(); err != nil {

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/adell/cloudops-release-intelligence/internal/domain"
 	"github.com/adell/cloudops-release-intelligence/internal/service"
@@ -126,6 +127,31 @@ func (h *Handler) GetRelease(c *gin.Context) {
 		resp.CIRun = &v
 	}
 	c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) GetReleaseRisk(c *gin.Context) {
+	id, err := domain.ParseReleaseID(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid release id")
+		return
+	}
+	a, err := h.catalog.AssessRisk(c.Request.Context(), id, time.Now().UTC())
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	factors := make([]riskFactorJSON, 0, len(a.Factors))
+	for _, f := range a.Factors {
+		factors = append(factors, riskFactorJSON{
+			Code: f.Code, Label: f.Label, Points: f.Points, Rationale: f.Rationale, Input: f.Input, Omitted: f.Omitted,
+		})
+	}
+	c.JSON(http.StatusOK, riskResponse{
+		ReleaseID: a.ReleaseID.String(), Score: a.Score, ScoreRaw: a.ScoreRaw,
+		Category: string(a.Category), ModelVersion: a.ModelVersion, AssessedAt: a.AssessedAt,
+		Disclaimer: "Release risk signal, not a probability of failure.",
+		Factors:    factors,
+	})
 }
 
 func mapService(s domain.Service) serviceJSON {

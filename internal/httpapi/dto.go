@@ -93,6 +93,26 @@ type releaseListResponse struct {
 	Releases []releaseJSON `json:"releases"`
 }
 
+type riskFactorJSON struct {
+	Code      string `json:"code"`
+	Label     string `json:"label"`
+	Points    int    `json:"points"`
+	Rationale string `json:"rationale"`
+	Input     string `json:"input"`
+	Omitted   bool   `json:"omitted"`
+}
+
+type riskResponse struct {
+	ReleaseID    string           `json:"release_id"`
+	Score        int              `json:"score"`
+	ScoreRaw     int              `json:"score_raw"`
+	Category     string           `json:"category"`
+	ModelVersion string           `json:"model_version"`
+	AssessedAt   time.Time        `json:"assessed_at"`
+	Disclaimer   string           `json:"disclaimer"`
+	Factors      []riskFactorJSON `json:"factors"`
+}
+
 type releaseDetailResponse struct {
 	Release    releaseJSON     `json:"release"`
 	Service    serviceJSON     `json:"service"`
