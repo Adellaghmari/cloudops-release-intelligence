@@ -88,8 +88,11 @@ Assessment pointers (`RISK#LATEST`, `HCOMP#LATEST`, `ROLLBACK#LATEST`) are overw
 
 ## Local development
 
-Phase 1: in-memory map implementing the same repository interface.
-Phase 2: DynamoDB local via testcontainers for repository tests.
-Production: real table from Terraform.
+Phase 1: in-memory map implementing the same repository interface (`APP_STORE=memory`, default).
+Phase 2: DynamoDB adapter using AWS SDK for Go v2. Domain types still never see PK/SK.
+
+This machine has **no Docker and no Java**, so DynamoDB Local / Testcontainers cannot run yet. Adapter tests use a DynamoDB-compatible in-process fake that implements PutItem/GetItem/Query/TransactWriteItems/conditional writes. That is **TESTED**, not LIVE VERIFIED, and not Amazon DynamoDB Local.
+
+When Docker is available, point `APP_STORE=dynamodb` and `AWS_ENDPOINT_URL` at DynamoDB Local. Production table creation remains Terraform (Phase 12).
 
 Do not use a SQL compatibility layer.

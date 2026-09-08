@@ -35,4 +35,5 @@ type Store interface {
 	CreateEvent(ctx context.Context, e domain.ReleaseEvent) error
 	CreateDecision(ctx context.Context, d domain.ReleaseDecision) error
 	GetEvent(ctx context.Context, id domain.EventID) (domain.ReleaseEvent, error)
+	ListEventsByRelease(ctx context.Context, releaseID domain.ReleaseID) ([]domain.ReleaseEvent, error)
 }
