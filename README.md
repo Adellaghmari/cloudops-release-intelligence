@@ -50,7 +50,7 @@ No LLMs. No vector databases. "Intelligence" here means deterministic operationa
 
 ## Current status
 
-**Phase 9 — Rollback Readiness (local).** Phases 0–9 are complete locally. There is no production AWS, no EventBridge/SQS execution, and no Terraform apply.
+**Phase 10 — Timeline + Replay (local).** Phases 0–10 are complete locally. There is no production AWS, no EventBridge/SQS execution, and no Terraform apply. Do not begin Phase 11 until requested.
 
 See:
 
@@ -102,6 +102,15 @@ npm start
 ```
 
 The Angular dev server proxies `/api` to `http://localhost:8080`. Do not use frontend fixture JSON as API data.
+
+Local default store is in-memory (`APP_STORE=memory`). Docker/Java are not required. DynamoDB Local and LocalStack are optional later; they were not run in this batch.
+
+Cypress (API and `npm start` must already be running):
+
+```text
+cd frontend
+npm run e2e
+```
 
 Then:
 

@@ -66,8 +66,8 @@ This remains a portfolio project. It is not professional work experience.
 | Change Impact Graph | TESTED | BFS/DFS blast radius from persisted edges | `internal/graph` + GET /releases/:id/impact + SVG. Language is potential impact. Local only. |
 | Release Policy Gate | TESTED | Versioned policy eval with PASS/WARN/BLOCK/MANUAL | Real Rego tests + GET /releases/:id/policy. Fail closed. Local only. |
 | Rollback Readiness | TESTED | READY/PARTIAL/NOT READY/UNKNOWN + missing prereqs | `internal/rollback` + GET /releases/:id/rollback. No auto rollback. Local only. |
-| Release Replay | PLANNED | Deterministic diff of two persisted releases | Spec only |
-| Release evidence timeline | PLANNED | Chronological events from storage | Spec only |
+| Release Replay | TESTED | Deterministic diff of two persisted releases | GET /replay + Angular Replay page. Local only. |
+| Release evidence timeline | TESTED | Chronological events from storage | GET /releases/:id/timeline from persisted events. Local only. |
 | Event-driven analysis | TESTED | Ingest → EventBridge → SQS → worker, not in-request theatre | Local envelope + Processor + POST /events + MemoryBus. EventBridge/SQS path not built. Not AWS verified. |
 | Idempotent ingestion | TESTED | Duplicate event_id does not double-apply | Processor + memory/DynamoDB conditional CreateEvent + HTTP 200 duplicate. Local only. |
 | Public recruiter demo | PLANNED | Unauthenticated synthetic scenarios through real logic | Spec only |
@@ -79,7 +79,7 @@ This remains a portfolio project. It is not professional work experience.
 | --- | --- | --- | --- |
 | Go table-driven unit tests | TESTED | Engines covered | Domain/repo/API tests passing locally. Engine packages not started. |
 | Integration tests | TESTED | Repository/event boundaries | DynamoDB-compatible fake + event processor tests. Not DynamoDB Local / LocalStack. |
-| Cypress E2E | PLANNED | Recruiter demo paths | None |
+| Cypress E2E | TESTED | Recruiter demo paths | `frontend/cypress/e2e/recruiter.cy.ts` against local API+Angular. Not public. |
 | k6 performance test | PLANNED | Documented run + limitations | None |
 | Dead letter handling | TESTED | SQS DLQ exists and is observable | In-process Processor DLQ for malformed/poison/unsupported schema. SQS DLQ not created. |
 

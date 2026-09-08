@@ -42,6 +42,18 @@ func TestLoadDistinguishesLiveAndSynthetic(t *testing.T) {
 	if _, err := store.GetRelease(ctx, "rel_northstar_payments_demo"); err != nil {
 		t.Fatal(err)
 	}
+	for _, id := range []domain.ReleaseID{
+		"rel_northstar_risky_db", "rel_northstar_regression", "rel_northstar_blast",
+		"rel_northstar_security", "rel_northstar_rollback",
+	} {
+		rel, err := store.GetRelease(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rel.Source != domain.DataSourceSynthetic || rel.Scenario == "" {
+			t.Fatalf("%s must be labeled synthetic scenario, got %+v", id, rel)
+		}
+	}
 }
 
 func TestLoadIdempotentFailureOnSecondCall(t *testing.T) {

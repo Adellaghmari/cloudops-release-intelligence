@@ -130,9 +130,25 @@
         <p class="muted">Rollback readiness unavailable.</p>
       }
     </section>
-    <section class="reserved">
+    <section>
       <h2>Timeline</h2>
-      <p class="muted">Evidence timeline and release replay are not implemented yet.</p>
+      @if (vm.timeline) {
+        <table>
+          <thead><tr><th>When</th><th>Type</th><th>ID</th></tr></thead>
+          <tbody>
+            @for (e of vm.timeline.entries; track e.event_id) {
+              <tr>
+                <td>{{ e.occurred_at | date: 'medium' }}</td>
+                <td>{{ e.event_type }}</td>
+                <td class="mono">{{ e.event_id }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <p><a routerLink="/replay">Compare with another release</a></p>
+      } @else {
+        <p class="muted">Timeline unavailable.</p>
+      }
     </section>
   }
 }

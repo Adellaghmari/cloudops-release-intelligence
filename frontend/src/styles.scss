@@ -116,3 +116,13 @@ th {
   border-top: 1px solid var(--stroke);
   padding-top: 0.25rem;
 }
+
+select {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--stroke);
+  padding: 0.4rem;
+}

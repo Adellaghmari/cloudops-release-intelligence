@@ -25,6 +25,7 @@ export class ReleaseDetailPage {
         impact: this.api.getImpact(id).pipe(catchError(() => of(null))),
         policy: this.api.getPolicy(id).pipe(catchError(() => of(null))),
         rollback: this.api.getRollback(id).pipe(catchError(() => of(null))),
+        timeline: this.api.getTimeline(id).pipe(catchError(() => of(null))),
       }).pipe(
         map((data) => ({ state: 'ready' as const, ...data, error: '' })),
         catchError((err) =>
@@ -36,6 +37,7 @@ export class ReleaseDetailPage {
             impact: null,
             policy: null,
             rollback: null,
+            timeline: null,
             error: err.message,
           }),
         ),

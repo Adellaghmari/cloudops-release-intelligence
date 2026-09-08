@@ -28,7 +28,7 @@ func (c *Catalog) CompareHealth(ctx context.Context, id domain.ReleaseID, now ti
 	in.Baseline = snapshotWindow(snaps, domain.HealthWindowBaseline, id, t.Add(-60*time.Minute), t, t)
 	in.Post = snapshotWindow(snaps, domain.HealthWindowPost, id, t.Add(2*time.Minute), t.Add(32*time.Minute), t)
 	in.BaselineAlreadyBad = baselineBreached(in.Baseline)
-	in.DegradationBeforeDeploy = degradationBefore(snaps, t)
+	in.DegradationBeforeDeploy = degradationBefore(snaps, id, t)
 	in.IncidentInWindow = incidentInPost(ctx, c, detail.Service.ID, t)
 	overlap, err := c.overlappingNeighborDeploy(ctx, detail, t)
 	if err != nil {
@@ -96,8 +96,11 @@ func baselineBreached(w *health.Window) bool {
 	return (w.HasError && w.ErrorRate > 0.01) || (w.HasAvail && w.Availability < 0.999)
 }
 
-func degradationBefore(snaps []domain.HealthSnapshot, deploy time.Time) bool {
+func degradationBefore(snaps []domain.HealthSnapshot, rel domain.ReleaseID, deploy time.Time) bool {
 	for _, h := range snaps {
+		if h.ReleaseID != nil && *h.ReleaseID != rel {
+			continue
+		}
 		if h.WindowKind == domain.HealthWindowPost && h.WindowStart.Before(deploy) {
 			return true
 		}

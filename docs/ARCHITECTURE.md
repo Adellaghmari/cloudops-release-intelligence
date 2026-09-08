@@ -60,6 +60,8 @@ internal/health/         pre/post comparator + correlation
 internal/graph/          blast radius traversal
 internal/policy/         in-process OPA evaluation
 internal/rollback/       rollback readiness checklist
+internal/timeline/       evidence timeline sort
+internal/replay/         release-to-release field diff
 policies/                versioned Rego bundle
 internal/config/         env/config
 internal/localseed/      local synthetic + live-identity catalog
@@ -71,7 +73,6 @@ Reserved for later phases (do not create empty):
 ```text
 cmd/worker/
 internal/aws/
-internal/replay/
 internal/demo/
 policies/
 infra/

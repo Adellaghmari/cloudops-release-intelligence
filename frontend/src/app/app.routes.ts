@@ -4,6 +4,7 @@ import { ArchitecturePage } from './pages/architecture.page';
 import { OverviewPage } from './pages/overview.page';
 import { ReleaseDetailPage } from './pages/release-detail.page';
 import { ReleasesPage } from './pages/releases.page';
+import { ReplayPage } from './pages/replay.page';
 import { ServiceDetailPage } from './pages/service-detail.page';
 import { ServicesPage } from './pages/services.page';
 
@@ -17,6 +18,7 @@ export const routes: Routes = [
       { path: 'services/:id', component: ServiceDetailPage },
       { path: 'releases', component: ReleasesPage },
       { path: 'releases/:id', component: ReleaseDetailPage },
+      { path: 'replay', component: ReplayPage },
       { path: 'architecture', component: ArchitecturePage },
     ],
   },

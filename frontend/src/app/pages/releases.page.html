@@ -11,6 +11,7 @@
           <th>ID</th>
           <th>Service</th>
           <th>Version</th>
+          <th>Scenario</th>
           <th>Status</th>
           <th>Source</th>
         </tr>
@@ -21,6 +22,7 @@
             <td><a [routerLink]="['/releases', rel.id]" class="mono">{{ rel.id }}</a></td>
             <td>{{ rel.service_id }}</td>
             <td>{{ rel.version }}</td>
+            <td>{{ rel.scenario || '—' }}</td>
             <td>{{ rel.status }}</td>
             <td><app-source-badge [source]="rel.source" /></td>
           </tr>

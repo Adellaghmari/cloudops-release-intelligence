@@ -215,6 +215,36 @@ func TestNotFoundAndSourceFilter(t *testing.T) {
 	}
 }
 
+func TestTimelineAndReplay(t *testing.T) {
+	h := testServer(t)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/releases/rel_northstar_payments_demo/timeline", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatal(rec.Body.String())
+	}
+	var tl timelineResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &tl); err != nil {
+		t.Fatal(err)
+	}
+	if len(tl.Entries) < 2 {
+		t.Fatalf("timeline=%+v", tl)
+	}
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/replay?a=rel_northstar_payments_demo&b=rel_northstar_regression", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatal(rec.Body.String())
+	}
+	var rp replayResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &rp); err != nil {
+		t.Fatal(err)
+	}
+	if len(rp.Fields) == 0 {
+		t.Fatal("expected replay fields")
+	}
+}
+
 func TestReleaseRollback(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/releases/rel_northstar_payments_demo/rollback", nil)

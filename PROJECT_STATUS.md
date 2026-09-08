@@ -1,8 +1,8 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence
-**Phase:** 9 — Rollback Readiness
-**Status:** PHASE 9 COMPLETE (local)
+**Phase:** 10 — Release Timeline + Release Replay
+**Status:** PHASE 10 COMPLETE (local)
 **Complete:** No
 
 This file is the source of truth for what exists versus what is planned. It must not mark the project COMPLETE until the public product, AWS infrastructure, CI/CD, observability, and live verification criteria in the master build prompt are actually proven.
@@ -41,9 +41,12 @@ Phase 1 is complete when:
 - Change impact graph (`internal/graph`) + GET `/releases/:id/impact` + SVG visualization
 - In-process OPA/Rego policy gate (`policies/` v1.0.0) + GET `/releases/:id/policy`
 - Rollback readiness (`internal/rollback`) + GET `/releases/:id/rollback` (decision support only)
-- Angular 21 operations console (local) with Risk, Health, Impact, Policy, and Rollback on Release Detail
+- Release timeline + replay (`internal/timeline`, `internal/replay`) + GET `/releases/:id/timeline` + GET `/replay`
+- Northstar synthetic scenarios (SAFE_RELEASE, RISKY_DATABASE_RELEASE, POST_DEPLOY_REGRESSION, DEPENDENCY_BLAST_RADIUS, SECURITY_BLOCK, ROLLBACK_NOT_READY)
+- Angular Release Detail sections + Replay page; Cypress recruiter path
+- Angular 21 operations console (local)
 
-Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, timeline/replay, Terraform, GitHub Actions.
+Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, Terraform, GitHub Actions, public demo hosting.
 
 ## Test status
 
@@ -52,7 +55,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, timeline/rep
 | Go unit tests | PASSING (local) |
 | Go integration tests | TESTED against DynamoDB-compatible fake (not DynamoDB Local) |
 | Angular unit tests | PASSING locally (Phase 3) |
-| Cypress E2E | NOT STARTED |
+| Cypress E2E | TESTED locally (recruiter path; not public) |
 | k6 performance | NOT STARTED |
 | Terraform validate | NOT STARTED |
 
@@ -74,7 +77,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, timeline/rep
 - EventBridge and SQS are not executed. `MemoryBus` is in-process only. Not LIVE VERIFIED.
 - LocalStack was not used (Docker unavailable).
 - No webhooks. GitHub signature verification is specified, not implemented.
-- Timeline and release replay are not in this phase's committed surface.
+- Public CloudFront/S3 hosting and demo reset API are not implemented.
 - Module path `github.com/adell/cloudops-release-intelligence` is a placeholder until the public remote exists.
 - Go toolchain is **1.27.0**. Angular is 21 (Node 22.14.0; Angular 22 needs ≥22.22.3).
 - Default local git branch is `main`. No GitHub remote yet.
@@ -94,7 +97,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, timeline/rep
 
 ## Remaining work
 
-**Phase 10 — Release Timeline + Release Replay + Cypress.**
+**Phase 11 — Real GitHub Actions / self dogfooding** (not started; this batch stops at Phase 10).
 
 ## Phase tracker
 
@@ -110,7 +113,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, timeline/rep
 | 7 | Change Impact Graph | COMPLETE (local) |
 | 8 | OPA / Release Policy Gate | COMPLETE (local) |
 | 9 | Rollback Readiness | COMPLETE (local) |
-| 10 | Release Timeline + Release Replay | PLANNED |
+| 10 | Release Timeline + Release Replay | COMPLETE (local) |
 | 11 | Real GitHub Actions / self dogfooding | PLANNED |
 | 12 | AWS infrastructure with Terraform | PLANNED |
 | 13 | CI/CD + OIDC + DevSecOps | PLANNED |

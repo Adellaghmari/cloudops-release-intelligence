@@ -44,6 +44,7 @@ type releaseJSON struct {
 	Environment string    `json:"environment"`
 	Status      string    `json:"status"`
 	Source      string    `json:"source"`
+	Scenario    string    `json:"scenario,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -174,6 +175,34 @@ type impactResponse struct {
 	Empty                bool             `json:"empty"`
 	Algorithm            string           `json:"algorithm"`
 	Disclaimer           string           `json:"disclaimer"`
+}
+
+type timelineEntryJSON struct {
+	EventID    string    `json:"event_id"`
+	Type       string    `json:"event_type"`
+	OccurredAt time.Time `json:"occurred_at"`
+	Producer   string    `json:"producer"`
+	Summary    string    `json:"summary"`
+	ReleaseID  string    `json:"release_id,omitempty"`
+	ServiceID  string    `json:"service_id,omitempty"`
+}
+
+type timelineResponse struct {
+	ReleaseID string              `json:"release_id"`
+	Entries   []timelineEntryJSON `json:"entries"`
+}
+
+type replayFieldJSON struct {
+	Path string `json:"path"`
+	Kind string `json:"kind"`
+	A    string `json:"a"`
+	B    string `json:"b"`
+}
+
+type replayResponse struct {
+	A      string            `json:"a"`
+	B      string            `json:"b"`
+	Fields []replayFieldJSON `json:"fields"`
 }
 
 type rollbackSignalJSON struct {

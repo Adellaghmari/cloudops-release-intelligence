@@ -157,6 +157,57 @@ func (h *Handler) GetReleaseRisk(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetReleaseTimeline(c *gin.Context) {
+	id, err := domain.ParseReleaseID(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid release id")
+		return
+	}
+	entries, err := h.catalog.Timeline(c.Request.Context(), id)
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	out := make([]timelineEntryJSON, 0, len(entries))
+	for _, e := range entries {
+		item := timelineEntryJSON{
+			EventID: e.EventID.String(), Type: string(e.Type), OccurredAt: e.OccurredAt,
+			Producer: string(e.Producer), Summary: e.Summary,
+		}
+		if e.ReleaseID != nil {
+			item.ReleaseID = e.ReleaseID.String()
+		}
+		if e.ServiceID != nil {
+			item.ServiceID = e.ServiceID.String()
+		}
+		out = append(out, item)
+	}
+	c.JSON(http.StatusOK, timelineResponse{ReleaseID: id.String(), Entries: out})
+}
+
+func (h *Handler) Replay(c *gin.Context) {
+	a, err := domain.ParseReleaseID(c.Query("a"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid release id a")
+		return
+	}
+	b, err := domain.ParseReleaseID(c.Query("b"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid release id b")
+		return
+	}
+	res, err := h.catalog.Replay(c.Request.Context(), a, b, time.Now().UTC())
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	fields := make([]replayFieldJSON, 0, len(res.Fields))
+	for _, f := range res.Fields {
+		fields = append(fields, replayFieldJSON{Path: f.Path, Kind: string(f.Kind), A: f.A, B: f.B})
+	}
+	c.JSON(http.StatusOK, replayResponse{A: res.AID.String(), B: res.BID.String(), Fields: fields})
+}
+
 func (h *Handler) GetReleaseRollback(c *gin.Context) {
 	id, err := domain.ParseReleaseID(c.Param("id"))
 	if err != nil {
@@ -299,6 +350,7 @@ func mapRelease(r domain.Release) releaseJSON {
 		Environment: string(r.Environment),
 		Status:      string(r.Status),
 		Source:      string(r.Source),
+		Scenario:    r.Scenario,
 		CreatedAt:   r.CreatedAt,
 	}
 }
