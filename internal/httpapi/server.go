@@ -38,6 +38,7 @@ func NewEngine(cfg config.Config, catalog *service.Catalog, logger *slog.Logger,
 		v1.GET("/releases", h.ListReleases)
 		v1.GET("/releases/:id", h.GetRelease)
 		v1.GET("/releases/:id/risk", h.GetReleaseRisk)
+		v1.GET("/releases/:id/health", h.GetReleaseHealth)
 		v1.POST("/events", h.IngestEvent)
 	}
 	r.NoRoute(func(c *gin.Context) {

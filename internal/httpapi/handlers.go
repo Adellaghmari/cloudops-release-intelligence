@@ -156,6 +156,32 @@ func (h *Handler) GetReleaseRisk(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetReleaseHealth(c *gin.Context) {
+	id, err := domain.ParseReleaseID(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid release id")
+		return
+	}
+	a, err := h.catalog.CompareHealth(c.Request.Context(), id, time.Now().UTC())
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	metrics := make([]healthMetricJSON, 0, len(a.Metrics))
+	for _, m := range a.Metrics {
+		metrics = append(metrics, healthMetricJSON{
+			Name: m.Name, Baseline: m.Baseline, Post: m.Post, AbsDelta: m.AbsDelta, PctDelta: m.PctDelta,
+			Threshold: m.Threshold, Verdict: m.Verdict, Available: m.Available, Reason: m.Reason,
+		})
+	}
+	c.JSON(http.StatusOK, healthCompareResponse{
+		ReleaseID: a.ReleaseID.String(), Overall: a.Overall, Correlation: a.Correlation,
+		Reasons: a.Reasons, Metrics: metrics, BaselineFrom: a.BaselineFrom, BaselineTo: a.BaselineTo,
+		PostFrom: a.PostFrom, PostTo: a.PostTo, ModelVersion: a.ModelVersion, ComparedAt: a.ComparedAt,
+		Disclaimer: a.Disclaimer,
+	})
+}
+
 func (h *Handler) IngestEvent(c *gin.Context) {
 	if h.processor == nil {
 		writeError(c, http.StatusServiceUnavailable, "UNAVAILABLE", "event processor is not configured")

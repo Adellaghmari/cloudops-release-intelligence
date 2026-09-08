@@ -27,6 +27,7 @@ type Store struct {
 	decisions   map[domain.DecisionID]domain.ReleaseDecision
 	risks       map[domain.ReleaseID]domain.RiskAssessment
 	scans       map[domain.ReleaseID]domain.SecurityScan
+	healthCmp   map[domain.ReleaseID]domain.HealthAssessment
 }
 
 func New() *Store {
@@ -43,6 +44,7 @@ func New() *Store {
 		decisions:   map[domain.DecisionID]domain.ReleaseDecision{},
 		risks:       map[domain.ReleaseID]domain.RiskAssessment{},
 		scans:       map[domain.ReleaseID]domain.SecurityScan{},
+		healthCmp:   map[domain.ReleaseID]domain.HealthAssessment{},
 	}
 }
 
@@ -372,4 +374,34 @@ func (s *Store) ListIncidentsByService(_ context.Context, serviceID domain.Servi
 		}
 	}
 	return out, nil
+}
+
+func (s *Store) ListHealthSnapshotsByService(_ context.Context, serviceID domain.ServiceID) ([]domain.HealthSnapshot, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var out []domain.HealthSnapshot
+	for _, h := range s.health {
+		if h.ServiceID == serviceID {
+			out = append(out, h)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].WindowStart.Before(out[j].WindowStart) })
+	return out, nil
+}
+
+func (s *Store) PutHealthComparison(_ context.Context, a domain.HealthAssessment) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.healthCmp[a.ReleaseID] = a
+	return nil
+}
+
+func (s *Store) GetHealthComparison(_ context.Context, releaseID domain.ReleaseID) (domain.HealthAssessment, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	a, ok := s.healthCmp[releaseID]
+	if !ok {
+		return domain.HealthAssessment{}, domain.NotFoundError{Resource: "health", ID: releaseID.String()}
+	}
+	return a, nil
 }

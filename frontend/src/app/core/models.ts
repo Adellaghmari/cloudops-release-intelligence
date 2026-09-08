@@ -114,6 +114,33 @@ export interface RiskResponse {
   factors: RiskFactor[];
 }
 
+export interface HealthMetric {
+  name: string;
+  baseline: number;
+  post: number;
+  abs_delta: number;
+  pct_delta?: number;
+  threshold: string;
+  verdict: string;
+  available: boolean;
+  reason: string;
+}
+
+export interface HealthCompareResponse {
+  release_id: string;
+  overall: string;
+  correlation: string;
+  reasons: string[];
+  metrics: HealthMetric[];
+  baseline_from: string;
+  baseline_to: string;
+  post_from: string;
+  post_to: string;
+  model_version: string;
+  compared_at: string;
+  disclaimer: string;
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;

@@ -50,7 +50,7 @@ No LLMs. No vector databases. "Intelligence" here means deterministic operationa
 
 ## Current status
 
-**Phase 5 — Event architecture foundation (local).** Phases 0–5 are complete locally. There is no production AWS, no EventBridge/SQS execution, and no Terraform apply.
+**Phase 6 — Deployment Health Comparator (local).** Phases 0–6 are complete locally. There is no production AWS, no EventBridge/SQS execution, and no Terraform apply.
 
 See:
 

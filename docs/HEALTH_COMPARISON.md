@@ -84,15 +84,19 @@ Result:
 
 | Result | When |
 | --- | --- |
-| `LIKELY_RELEASE_CORRELATION` | `baseline_clear` AND (`service_match` OR `graph_upstream`) |
-| `UNLIKELY` | degraded but baseline already breached the same SLO |
-| `INSUFFICIENT_EVIDENCE` | degraded but neither service match nor graph relationship, or missing graph |
+| `LIKELY_RELEASE_CORRELATION` | Severe post-deploy regression, baseline was clear, and the degraded service is the changed service or a dependent of it |
+| `POSSIBLE_RELEASE_CORRELATION` | Degraded (not severe), baseline clear, service or graph relationship |
+| `NO_CLEAR_RELEASE_CORRELATION` | Health is STABLE, baseline already bad, degradation began before deploy, or the degraded service is unrelated |
+| `INSUFFICIENT_DATA` | Missing windows, sample &lt; 50, overlapping neighbor deploy, or no service/graph relationship |
+
+The product never emits `PROVEN_CAUSE`.
 
 UI label examples:
 
 - LIKELY RELEASE CORRELATION
-- POST DEPLOYMENT REGRESSION
-- INSUFFICIENT EVIDENCE
+- POSSIBLE RELEASE CORRELATION
+- NO CLEAR RELEASE CORRELATION
+- INSUFFICIENT DATA
 
 Forbidden labels: "root cause confirmed", "proven causation", "the release caused this."
 

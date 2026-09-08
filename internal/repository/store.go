@@ -41,4 +41,7 @@ type Store interface {
 	CreateSecurityScan(ctx context.Context, s domain.SecurityScan) error
 	GetSecurityScanByRelease(ctx context.Context, releaseID domain.ReleaseID) (domain.SecurityScan, error)
 	ListIncidentsByService(ctx context.Context, serviceID domain.ServiceID) ([]domain.Incident, error)
+	ListHealthSnapshotsByService(ctx context.Context, serviceID domain.ServiceID) ([]domain.HealthSnapshot, error)
+	PutHealthComparison(ctx context.Context, a domain.HealthAssessment) error
+	GetHealthComparison(ctx context.Context, releaseID domain.ReleaseID) (domain.HealthAssessment, error)
 }

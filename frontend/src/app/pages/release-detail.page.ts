@@ -20,9 +20,12 @@ export class ReleaseDetailPage {
       return forkJoin({
         detail: this.api.getRelease(id),
         risk: this.api.getRisk(id).pipe(catchError(() => of(null))),
+        health: this.api.getHealth(id).pipe(catchError(() => of(null))),
       }).pipe(
         map((data) => ({ state: 'ready' as const, ...data, error: '' })),
-        catchError((err) => of({ state: 'error' as const, detail: null, risk: null, error: err.message })),
+        catchError((err) =>
+          of({ state: 'error' as const, detail: null, risk: null, health: null, error: err.message }),
+        ),
       );
     }),
   );
