@@ -1,0 +1,30 @@
+<div class="shell">
+  <aside class="nav" aria-label="Primary">
+    <a class="brand" routerLink="/">
+      <span class="mark">CR</span>
+      <span>
+        <strong>CloudOps</strong>
+        <small>Release Intelligence</small>
+      </span>
+    </a>
+    <p class="tag">Change. Risk. Impact. Recovery.</p>
+    <nav>
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Operations</a>
+      <a routerLink="/releases" routerLinkActive="active">Releases</a>
+      <a routerLink="/services" routerLinkActive="active">Services</a>
+      <a routerLink="/architecture" routerLinkActive="active">Architecture</a>
+    </nav>
+    <p class="aside-note">Northstar Commerce data is labeled SYNTHETIC DEMO. Live identities are this product only.</p>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <p class="lede">
+        Most deployment tools tell you what shipped. This system connects the change to risk, service
+        health, potential impact and recovery readiness.
+      </p>
+    </header>
+    <main id="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

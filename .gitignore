@@ -64,6 +64,7 @@ desktop.ini
 
 # Cursor local
 .cursor/
+.npm-cache/
 
 # Credentials
 *.pem

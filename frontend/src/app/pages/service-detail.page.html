@@ -1,0 +1,30 @@
+@if (vm$ | async; as vm) {
+  @if (vm.state === 'error' || !vm.detail) {
+    <p class="error" role="alert">{{ vm.error || 'Service unavailable' }}</p>
+  } @else {
+    <p><a routerLink="/services">Services</a></p>
+    <h1>{{ vm.detail.service.name }}</h1>
+    <p>
+      <app-source-badge [source]="vm.detail.service.source" />
+      <span class="mono"> {{ vm.detail.service.id }}</span>
+      · {{ vm.detail.service.criticality }}
+    </p>
+    <p>{{ vm.detail.service.description }}</p>
+    <h2>Depends on</h2>
+    <ul>
+      @for (edge of vm.detail.depends_on; track edge.to) {
+        <li><a [routerLink]="['/services', edge.to]">{{ edge.to }}</a> <span class="muted">({{ edge.kind }})</span></li>
+      } @empty {
+        <li class="muted">No outbound dependencies.</li>
+      }
+    </ul>
+    <h2>Depended on by</h2>
+    <ul>
+      @for (edge of vm.detail.depended_by; track edge.from) {
+        <li><a [routerLink]="['/services', edge.from]">{{ edge.from }}</a></li>
+      } @empty {
+        <li class="muted">No inbound dependents.</li>
+      }
+    </ul>
+  }
+}
