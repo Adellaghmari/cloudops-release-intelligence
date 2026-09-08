@@ -253,8 +253,8 @@ func (s *Store) CreateCommit(ctx context.Context, c domain.Commit) error {
 			SHA: c.SHA.String(), ReleaseID: c.ReleaseID.String(), ServiceID: c.ServiceID.String(),
 			Message: c.Message, Author: c.Author, FilesChanged: c.FilesChanged,
 			LinesAdded: c.LinesAdded, LinesDeleted: c.LinesDeleted,
-			MigrationPresent: c.MigrationPresent, ConfigChangePresent: c.ConfigChangePresent,
-			CommittedAt: c.CommittedAt,
+			MigrationPresent: c.MigrationPresent, MigrationReversible: c.MigrationReversible,
+			ConfigChangePresent: c.ConfigChangePresent, CommittedAt: c.CommittedAt,
 		}),
 	}, c.SHA.String())
 }
@@ -275,8 +275,8 @@ func (s *Store) GetCommitByRelease(ctx context.Context, releaseID domain.Release
 		SHA: domain.CommitSHA(p.SHA), ReleaseID: domain.ReleaseID(p.ReleaseID), ServiceID: domain.ServiceID(p.ServiceID),
 		Message: p.Message, Author: p.Author, FilesChanged: p.FilesChanged,
 		LinesAdded: p.LinesAdded, LinesDeleted: p.LinesDeleted,
-		MigrationPresent: p.MigrationPresent, ConfigChangePresent: p.ConfigChangePresent,
-		CommittedAt: p.CommittedAt,
+		MigrationPresent: p.MigrationPresent, MigrationReversible: p.MigrationReversible,
+		ConfigChangePresent: p.ConfigChangePresent, CommittedAt: p.CommittedAt,
 	}.Normalized(), nil
 }
 
@@ -561,6 +561,34 @@ func (s *Store) GetHealthComparison(ctx context.Context, releaseID domain.Releas
 	var a domain.HealthAssessment
 	if err := decodePayload(rec.Payload, &a); err != nil {
 		return domain.HealthAssessment{}, wrapErr("get_health_cmp", err)
+	}
+	return a, nil
+}
+
+func (s *Store) PutRollbackAssessment(ctx context.Context, a domain.RollbackAssessment) error {
+	raw, err := encodePayload(a)
+	if err != nil {
+		return wrapErr("put_rollback", err)
+	}
+	item, err := marshalRecord(record{PK: releasePK(a.ReleaseID), SK: "ROLLBACK#LATEST", EntityType: "ROLLBACK", Payload: raw})
+	if err != nil {
+		return wrapErr("put_rollback", err)
+	}
+	_, err = s.api.PutItem(ctx, &dynamodb.PutItemInput{TableName: aws.String(s.table), Item: item})
+	return wrapErr("put_rollback", err)
+}
+
+func (s *Store) GetRollbackAssessment(ctx context.Context, releaseID domain.ReleaseID) (domain.RollbackAssessment, error) {
+	rec, err := s.get(ctx, releasePK(releaseID), "ROLLBACK#LATEST")
+	if err != nil {
+		if domain.IsNotFound(err) {
+			return domain.RollbackAssessment{}, domain.NotFoundError{Resource: "rollback", ID: releaseID.String()}
+		}
+		return domain.RollbackAssessment{}, err
+	}
+	var a domain.RollbackAssessment
+	if err := decodePayload(rec.Payload, &a); err != nil {
+		return domain.RollbackAssessment{}, wrapErr("get_rollback", err)
 	}
 	return a, nil
 }

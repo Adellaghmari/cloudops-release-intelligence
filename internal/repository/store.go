@@ -46,4 +46,6 @@ type Store interface {
 	GetHealthComparison(ctx context.Context, releaseID domain.ReleaseID) (domain.HealthAssessment, error)
 	PutPolicyEvaluation(ctx context.Context, e domain.PolicyEvaluation) error
 	GetPolicyEvaluation(ctx context.Context, releaseID domain.ReleaseID) (domain.PolicyEvaluation, error)
+	PutRollbackAssessment(ctx context.Context, a domain.RollbackAssessment) error
+	GetRollbackAssessment(ctx context.Context, releaseID domain.ReleaseID) (domain.RollbackAssessment, error)
 }

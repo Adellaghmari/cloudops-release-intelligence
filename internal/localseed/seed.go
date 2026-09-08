@@ -74,6 +74,9 @@ func seedDependencies(ctx context.Context, store repository.Store, now time.Time
 }
 
 func seedSyntheticRelease(ctx context.Context, store repository.Store, now time.Time) error {
+	if err := seedPriorPayments(ctx, store, now); err != nil {
+		return err
+	}
 	relID := domain.ReleaseID("rel_northstar_payments_demo")
 	sha := domain.CommitSHA("c0ffee1")
 	started := now.Add(-40 * time.Minute)
@@ -128,6 +131,37 @@ func seedSyntheticRelease(ctx context.Context, store repository.Store, now time.
 		ReleaseID:     &relID,
 		ServiceID:     &svc,
 	})
+}
+
+func seedPriorPayments(ctx context.Context, store repository.Store, now time.Time) error {
+	relID := domain.ReleaseID("rel_northstar_payments_prior")
+	sha := domain.CommitSHA("bada111")
+	started := now.Add(-7 * 24 * time.Hour)
+	done := started.Add(5 * time.Minute)
+	if err := store.CreateRelease(ctx, domain.Release{
+		ID: relID, ServiceID: "payments-service", Version: "0.0.9-demo", GitSHA: sha,
+		Environment: domain.EnvironmentLocal, Status: domain.ReleaseStatusDeployed,
+		Source: domain.DataSourceSynthetic, CreatedAt: started,
+	}); err != nil {
+		return err
+	}
+	if err := store.CreateCommit(ctx, domain.Commit{
+		SHA: sha, ReleaseID: relID, ServiceID: "payments-service",
+		Message: "demo: prior stable payments build", Author: "northstar-demo",
+		FilesChanged: 2, LinesAdded: 8, LinesDeleted: 1, CommittedAt: started.Add(-30 * time.Minute),
+	}); err != nil {
+		return err
+	}
+	if err := store.CreateDeployment(ctx, domain.Deployment{
+		ID: "dep_northstar_payments_prior", ReleaseID: relID, ServiceID: "payments-service",
+		Environment: domain.EnvironmentLocal, Status: domain.DeploymentStatusSucceeded,
+		Target: "local:payments-service", ArtifactURI: "s3://northstar-demo/payments/0.0.9.zip",
+		ImageDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		StartedAt:   started, CompletedAt: &done,
+	}); err != nil {
+		return err
+	}
+	return seedHealthPair(ctx, store, relID, "payments-service", done, now, 300, 0.006, 0.9997, 170)
 }
 
 func seedHealthPair(ctx context.Context, store repository.Store, rel domain.ReleaseID, svc domain.ServiceID, deployed, now time.Time, req int, errRate, avail, p95 float64) error {

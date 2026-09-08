@@ -109,6 +109,24 @@ type PolicyEvaluation struct {
 	EvaluatedAt   time.Time
 }
 
+type RollbackSignal struct {
+	ID      string
+	OK      bool
+	NA      bool
+	Detail  string
+	Missing bool
+}
+
+type RollbackAssessment struct {
+	ReleaseID    ReleaseID
+	Status       RollbackStatus
+	Signals      []RollbackSignal
+	Missing      []string
+	ModelVersion string
+	AssessedAt   time.Time
+	Disclaimer   string
+}
+
 func CategoryForScore(score int) RiskCategory {
 	switch {
 	case score >= 75:

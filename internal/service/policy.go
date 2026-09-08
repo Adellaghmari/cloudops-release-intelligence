@@ -26,7 +26,12 @@ func (c *Catalog) EvaluatePolicy(ctx context.Context, id domain.ReleaseID, now t
 		Criticality: string(detail.Service.Criticality), RiskScore: riskA.Score,
 		RiskCategory: string(riskA.Category), HealthOverall: healthA.Overall,
 		HealthAvail: healthA.Overall != "" && healthA.Overall != "INSUFFICIENT_DATA",
-		Rollback:    rollbackHint(detail), Phase: "PRE_DEPLOY",
+		Phase:       "PRE_DEPLOY",
+	}
+	if rb, err := c.AssessRollback(ctx, id, now); err != nil {
+		return domain.PolicyEvaluation{}, err
+	} else {
+		in.Rollback = string(rb.Status)
 	}
 	if in.HealthAvail {
 		in.Phase = "POST_DEPLOY"
@@ -52,17 +57,4 @@ func (c *Catalog) EvaluatePolicy(ctx context.Context, id domain.ReleaseID, now t
 		return domain.PolicyEvaluation{}, err
 	}
 	return eval, nil
-}
-
-func rollbackHint(detail ReleaseDetail) string {
-	if detail.Deployment == nil {
-		return "UNKNOWN"
-	}
-	if detail.Deployment.ArtifactURI == "" && detail.Deployment.ImageDigest == "" {
-		return "NOT_READY"
-	}
-	if detail.Deployment.Target == "" {
-		return "PARTIAL"
-	}
-	return "PARTIAL"
 }

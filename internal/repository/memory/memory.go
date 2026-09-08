@@ -29,6 +29,7 @@ type Store struct {
 	scans       map[domain.ReleaseID]domain.SecurityScan
 	healthCmp   map[domain.ReleaseID]domain.HealthAssessment
 	policies    map[domain.ReleaseID]domain.PolicyEvaluation
+	rollbacks   map[domain.ReleaseID]domain.RollbackAssessment
 }
 
 func New() *Store {
@@ -47,6 +48,7 @@ func New() *Store {
 		scans:       map[domain.ReleaseID]domain.SecurityScan{},
 		healthCmp:   map[domain.ReleaseID]domain.HealthAssessment{},
 		policies:    map[domain.ReleaseID]domain.PolicyEvaluation{},
+		rollbacks:   map[domain.ReleaseID]domain.RollbackAssessment{},
 	}
 }
 
@@ -413,6 +415,23 @@ func (s *Store) PutPolicyEvaluation(_ context.Context, e domain.PolicyEvaluation
 	defer s.mu.Unlock()
 	s.policies[e.ReleaseID] = e
 	return nil
+}
+
+func (s *Store) PutRollbackAssessment(_ context.Context, a domain.RollbackAssessment) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.rollbacks[a.ReleaseID] = a
+	return nil
+}
+
+func (s *Store) GetRollbackAssessment(_ context.Context, releaseID domain.ReleaseID) (domain.RollbackAssessment, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	a, ok := s.rollbacks[releaseID]
+	if !ok {
+		return domain.RollbackAssessment{}, domain.NotFoundError{Resource: "rollback", ID: releaseID.String()}
+	}
+	return a, nil
 }
 
 func (s *Store) GetPolicyEvaluation(_ context.Context, releaseID domain.ReleaseID) (domain.PolicyEvaluation, error) {
