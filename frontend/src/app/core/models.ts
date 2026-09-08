@@ -35,6 +35,7 @@ export interface CommitRecord {
   lines_added: number;
   lines_deleted: number;
   migration_present: boolean;
+  migration_reversible?: boolean;
   config_change_present: boolean;
   committed_at: string;
 }
@@ -160,6 +161,24 @@ export interface HealthCompareResponse {
   post_to: string;
   model_version: string;
   compared_at: string;
+  disclaimer: string;
+}
+
+export interface RollbackSignal {
+  id: string;
+  ok: boolean;
+  not_applicable: boolean;
+  detail: string;
+  missing: boolean;
+}
+
+export interface RollbackResponse {
+  release_id: string;
+  status: string;
+  signals: RollbackSignal[];
+  missing: string[];
+  model_version: string;
+  assessed_at: string;
   disclaimer: string;
 }
 

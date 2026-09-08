@@ -112,6 +112,7 @@ type Commit struct {
 	LinesAdded          int
 	LinesDeleted        int
 	MigrationPresent    bool
+	MigrationReversible *bool
 	ConfigChangePresent bool
 	CommittedAt         time.Time
 }

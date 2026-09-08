@@ -109,9 +109,26 @@
         <p class="muted">Policy evaluation unavailable.</p>
       }
     </section>
-    <section class="reserved">
+    <section>
       <h2>Rollback</h2>
-      <p class="muted">Rollback readiness is not implemented yet. This product will not execute production rollback.</p>
+      @if (vm.rollback) {
+        <p><strong>{{ vm.rollback.status }}</strong></p>
+        <p class="muted">{{ vm.rollback.disclaimer }}</p>
+        <table>
+          <thead><tr><th>Check</th><th>State</th><th>Detail</th></tr></thead>
+          <tbody>
+            @for (s of vm.rollback.signals; track s.id) {
+              <tr>
+                <td class="mono">{{ s.id }}</td>
+                <td>{{ s.not_applicable ? 'N/A' : (s.missing ? 'UNKNOWN' : (s.ok ? 'OK' : 'MISSING')) }}</td>
+                <td>{{ s.detail }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="muted">Rollback readiness unavailable.</p>
+      }
     </section>
     <section class="reserved">
       <h2>Timeline</h2>

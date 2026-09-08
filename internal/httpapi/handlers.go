@@ -157,6 +157,27 @@ func (h *Handler) GetReleaseRisk(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetReleaseRollback(c *gin.Context) {
+	id, err := domain.ParseReleaseID(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid release id")
+		return
+	}
+	a, err := h.catalog.AssessRollback(c.Request.Context(), id, time.Now().UTC())
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	sigs := make([]rollbackSignalJSON, 0, len(a.Signals))
+	for _, s := range a.Signals {
+		sigs = append(sigs, rollbackSignalJSON{ID: s.ID, OK: s.OK, NA: s.NA, Detail: s.Detail, Missing: s.Missing})
+	}
+	c.JSON(http.StatusOK, rollbackResponse{
+		ReleaseID: a.ReleaseID.String(), Status: string(a.Status), Signals: sigs,
+		Missing: a.Missing, ModelVersion: a.ModelVersion, AssessedAt: a.AssessedAt, Disclaimer: a.Disclaimer,
+	})
+}
+
 func (h *Handler) GetReleasePolicy(c *gin.Context) {
 	id, err := domain.ParseReleaseID(c.Param("id"))
 	if err != nil {
@@ -294,7 +315,7 @@ func mapCommit(c domain.Commit) commitJSON {
 	return commitJSON{
 		SHA: c.SHA.String(), Message: c.Message, Author: c.Author,
 		FilesChanged: c.FilesChanged, LinesAdded: c.LinesAdded, LinesDeleted: c.LinesDeleted,
-		MigrationPresent: c.MigrationPresent, ConfigChangePresent: c.ConfigChangePresent,
+		MigrationPresent: c.MigrationPresent, MigrationReversible: c.MigrationReversible, ConfigChangePresent: c.ConfigChangePresent,
 		CommittedAt: c.CommittedAt,
 	}
 }

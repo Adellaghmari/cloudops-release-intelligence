@@ -65,7 +65,7 @@ This remains a portfolio project. It is not professional work experience.
 | Release correlation | TESTED | Explicit evidence object, not "causation" | LIKELY/POSSIBLE/NO_CLEAR/INSUFFICIENT_DATA with reasons. Never PROVEN_CAUSE. Local only. |
 | Change Impact Graph | TESTED | BFS/DFS blast radius from persisted edges | `internal/graph` + GET /releases/:id/impact + SVG. Language is potential impact. Local only. |
 | Release Policy Gate | TESTED | Versioned policy eval with PASS/WARN/BLOCK/MANUAL | Real Rego tests + GET /releases/:id/policy. Fail closed. Local only. |
-| Rollback Readiness | PLANNED | READY/PARTIAL/NOT READY/UNKNOWN + missing prereqs | Spec only |
+| Rollback Readiness | TESTED | READY/PARTIAL/NOT READY/UNKNOWN + missing prereqs | `internal/rollback` + GET /releases/:id/rollback. No auto rollback. Local only. |
 | Release Replay | PLANNED | Deterministic diff of two persisted releases | Spec only |
 | Release evidence timeline | PLANNED | Chronological events from storage | Spec only |
 | Event-driven analysis | TESTED | Ingest → EventBridge → SQS → worker, not in-request theatre | Local envelope + Processor + POST /events + MemoryBus. EventBridge/SQS path not built. Not AWS verified. |

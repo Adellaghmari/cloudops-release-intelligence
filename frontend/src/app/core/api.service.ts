@@ -12,6 +12,7 @@ import {
   ImpactResponse,
   PolicyResponse,
   RiskResponse,
+  RollbackResponse,
   ServiceDetailResponse,
   ServiceListResponse,
 } from './models';
@@ -79,6 +80,12 @@ export class ApiService {
   getRisk(id: string): Observable<RiskResponse> {
     return this.http
       .get<RiskResponse>(`${this.base}/releases/${encodeURIComponent(id)}/risk`)
+      .pipe(catchError(toApiError));
+  }
+
+  getRollback(id: string): Observable<RollbackResponse> {
+    return this.http
+      .get<RollbackResponse>(`${this.base}/releases/${encodeURIComponent(id)}/rollback`)
       .pipe(catchError(toApiError));
   }
 

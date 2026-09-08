@@ -99,6 +99,7 @@ type commitPayload struct {
 	LinesAdded          int       `json:"lines_added"`
 	LinesDeleted        int       `json:"lines_deleted"`
 	MigrationPresent    bool      `json:"migration_present"`
+	MigrationReversible *bool     `json:"migration_reversible,omitempty"`
 	ConfigChangePresent bool      `json:"config_change_present"`
 	CommittedAt         time.Time `json:"committed_at"`
 }

@@ -55,6 +55,7 @@ type commitJSON struct {
 	LinesAdded          int       `json:"lines_added"`
 	LinesDeleted        int       `json:"lines_deleted"`
 	MigrationPresent    bool      `json:"migration_present"`
+	MigrationReversible *bool     `json:"migration_reversible,omitempty"`
 	ConfigChangePresent bool      `json:"config_change_present"`
 	CommittedAt         time.Time `json:"committed_at"`
 }
@@ -173,6 +174,24 @@ type impactResponse struct {
 	Empty                bool             `json:"empty"`
 	Algorithm            string           `json:"algorithm"`
 	Disclaimer           string           `json:"disclaimer"`
+}
+
+type rollbackSignalJSON struct {
+	ID      string `json:"id"`
+	OK      bool   `json:"ok"`
+	NA      bool   `json:"not_applicable"`
+	Detail  string `json:"detail"`
+	Missing bool   `json:"missing"`
+}
+
+type rollbackResponse struct {
+	ReleaseID    string               `json:"release_id"`
+	Status       string               `json:"status"`
+	Signals      []rollbackSignalJSON `json:"signals"`
+	Missing      []string             `json:"missing"`
+	ModelVersion string               `json:"model_version"`
+	AssessedAt   time.Time            `json:"assessed_at"`
+	Disclaimer   string               `json:"disclaimer"`
 }
 
 type policyRuleJSON struct {

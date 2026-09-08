@@ -1,8 +1,8 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence
-**Phase:** 8 — OPA / Release Policy Gate
-**Status:** PHASE 8 COMPLETE (local)
+**Phase:** 9 — Rollback Readiness
+**Status:** PHASE 9 COMPLETE (local)
 **Complete:** No
 
 This file is the source of truth for what exists versus what is planned. It must not mark the project COMPLETE until the public product, AWS infrastructure, CI/CD, observability, and live verification criteria in the master build prompt are actually proven.
@@ -40,9 +40,10 @@ Phase 1 is complete when:
 - Health comparator + release correlation (`internal/health`) + GET `/releases/:id/health`
 - Change impact graph (`internal/graph`) + GET `/releases/:id/impact` + SVG visualization
 - In-process OPA/Rego policy gate (`policies/` v1.0.0) + GET `/releases/:id/policy`
-- Angular 21 operations console (local) with Risk, Health, Impact, and Policy on Release Detail
+- Rollback readiness (`internal/rollback`) + GET `/releases/:id/rollback` (decision support only)
+- Angular 21 operations console (local) with Risk, Health, Impact, Policy, and Rollback on Release Detail
 
-Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, rollback engine, Terraform, GitHub Actions.
+Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, timeline/replay, Terraform, GitHub Actions.
 
 ## Test status
 
@@ -73,7 +74,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, rollback eng
 - EventBridge and SQS are not executed. `MemoryBus` is in-process only. Not LIVE VERIFIED.
 - LocalStack was not used (Docker unavailable).
 - No webhooks. GitHub signature verification is specified, not implemented.
-- Rollback readiness engine is not in this phase's committed surface.
+- Timeline and release replay are not in this phase's committed surface.
 - Module path `github.com/adell/cloudops-release-intelligence` is a placeholder until the public remote exists.
 - Go toolchain is **1.27.0**. Angular is 21 (Node 22.14.0; Angular 22 needs ≥22.22.3).
 - Default local git branch is `main`. No GitHub remote yet.
@@ -93,7 +94,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, rollback eng
 
 ## Remaining work
 
-**Phase 9 — Rollback Readiness** (decision support only, no auto rollback).
+**Phase 10 — Release Timeline + Release Replay + Cypress.**
 
 ## Phase tracker
 
@@ -108,7 +109,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, rollback eng
 | 6 | Deployment Health Comparator + correlation | COMPLETE (local) |
 | 7 | Change Impact Graph | COMPLETE (local) |
 | 8 | OPA / Release Policy Gate | COMPLETE (local) |
-| 9 | Rollback Readiness | PLANNED |
+| 9 | Rollback Readiness | COMPLETE (local) |
 | 10 | Release Timeline + Release Replay | PLANNED |
 | 11 | Real GitHub Actions / self dogfooding | PLANNED |
 | 12 | AWS infrastructure with Terraform | PLANNED |
