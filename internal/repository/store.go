@@ -36,4 +36,9 @@ type Store interface {
 	CreateDecision(ctx context.Context, d domain.ReleaseDecision) error
 	GetEvent(ctx context.Context, id domain.EventID) (domain.ReleaseEvent, error)
 	ListEventsByRelease(ctx context.Context, releaseID domain.ReleaseID) ([]domain.ReleaseEvent, error)
+	PutRiskAssessment(ctx context.Context, a domain.RiskAssessment) error
+	GetRiskAssessment(ctx context.Context, releaseID domain.ReleaseID) (domain.RiskAssessment, error)
+	CreateSecurityScan(ctx context.Context, s domain.SecurityScan) error
+	GetSecurityScanByRelease(ctx context.Context, releaseID domain.ReleaseID) (domain.SecurityScan, error)
+	ListIncidentsByService(ctx context.Context, serviceID domain.ServiceID) ([]domain.Incident, error)
 }

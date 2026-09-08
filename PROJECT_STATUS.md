@@ -1,8 +1,8 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence
-**Phase:** 3 — Angular operations console
-**Status:** PHASE 3 COMPLETE (local)
+**Phase:** 4 — Release Risk Engine
+**Status:** PHASE 4 COMPLETE (local)
 **Complete:** No
 
 This file is the source of truth for what exists versus what is planned. It must not mark the project COMPLETE until the public product, AWS infrastructure, CI/CD, observability, and live verification criteria in the master build prompt are actually proven.
@@ -94,7 +94,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, risk/health/graph/policy
 | 1 | Core domain models + Go API | COMPLETE |
 | 2 | DynamoDB + event persistence | COMPLETE |
 | 3 | Angular operations console | COMPLETE |
-| 4 | Release Risk Engine | PLANNED |
+| 4 | Release Risk Engine | COMPLETE |
 | 5 | EventBridge + SQS asynchronous processing | PLANNED |
 | 6 | Deployment Health Comparator | PLANNED |
 | 7 | Change Impact Graph | PLANNED |

@@ -25,6 +25,8 @@ type Store struct {
 	incidents   map[domain.IncidentID]domain.Incident
 	events      map[domain.EventID]domain.ReleaseEvent
 	decisions   map[domain.DecisionID]domain.ReleaseDecision
+	risks       map[domain.ReleaseID]domain.RiskAssessment
+	scans       map[domain.ReleaseID]domain.SecurityScan
 }
 
 func New() *Store {
@@ -39,6 +41,8 @@ func New() *Store {
 		incidents:   map[domain.IncidentID]domain.Incident{},
 		events:      map[domain.EventID]domain.ReleaseEvent{},
 		decisions:   map[domain.DecisionID]domain.ReleaseDecision{},
+		risks:       map[domain.ReleaseID]domain.RiskAssessment{},
+		scans:       map[domain.ReleaseID]domain.SecurityScan{},
 	}
 }
 
@@ -319,4 +323,53 @@ func (s *Store) CreateDecision(_ context.Context, d domain.ReleaseDecision) erro
 	}
 	s.decisions[d.ID] = d
 	return nil
+}
+
+func (s *Store) PutRiskAssessment(_ context.Context, a domain.RiskAssessment) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.risks[a.ReleaseID] = a
+	return nil
+}
+
+func (s *Store) GetRiskAssessment(_ context.Context, releaseID domain.ReleaseID) (domain.RiskAssessment, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	a, ok := s.risks[releaseID]
+	if !ok {
+		return domain.RiskAssessment{}, domain.NotFoundError{Resource: "risk", ID: releaseID.String()}
+	}
+	return a, nil
+}
+
+func (s *Store) CreateSecurityScan(_ context.Context, scan domain.SecurityScan) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.scans[scan.ReleaseID]; ok {
+		return domain.AlreadyExistsError{Resource: "security_scan", ID: scan.ID}
+	}
+	s.scans[scan.ReleaseID] = scan
+	return nil
+}
+
+func (s *Store) GetSecurityScanByRelease(_ context.Context, releaseID domain.ReleaseID) (domain.SecurityScan, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	scan, ok := s.scans[releaseID]
+	if !ok {
+		return domain.SecurityScan{}, domain.NotFoundError{Resource: "security_scan", ID: releaseID.String()}
+	}
+	return scan, nil
+}
+
+func (s *Store) ListIncidentsByService(_ context.Context, serviceID domain.ServiceID) ([]domain.Incident, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var out []domain.Incident
+	for _, i := range s.incidents {
+		if i.ServiceID == serviceID {
+			out = append(out, i)
+		}
+	}
+	return out, nil
 }

@@ -60,7 +60,7 @@ This remains a portfolio project. It is not professional work experience.
 
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
-| Release Risk Engine | PLANNED | Persisted score + contributing signals from real logic | Spec only |
+| Release Risk Engine | TESTED | Persisted score + contributing signals from real logic | `internal/risk` + GET /releases/:id/risk. Local only. |
 | Deployment Health Comparator | PLANNED | Pre/post windows, raw metrics, verdict | Spec only |
 | Release correlation | PLANNED | Explicit evidence object, not "causation" | Spec only |
 | Change Impact Graph | PLANNED | BFS/DFS blast radius from persisted edges | Spec only |

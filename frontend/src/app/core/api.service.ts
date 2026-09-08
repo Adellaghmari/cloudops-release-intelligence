@@ -8,6 +8,7 @@ import {
   ReadyResponse,
   ReleaseDetailResponse,
   ReleaseListResponse,
+  RiskResponse,
   ServiceDetailResponse,
   ServiceListResponse,
 } from './models';
@@ -69,6 +70,12 @@ export class ApiService {
   getRelease(id: string): Observable<ReleaseDetailResponse> {
     return this.http
       .get<ReleaseDetailResponse>(`${this.base}/releases/${encodeURIComponent(id)}`)
+      .pipe(catchError(toApiError));
+  }
+
+  getRisk(id: string): Observable<RiskResponse> {
+    return this.http
+      .get<RiskResponse>(`${this.base}/releases/${encodeURIComponent(id)}/risk`)
       .pipe(catchError(toApiError));
   }
 }

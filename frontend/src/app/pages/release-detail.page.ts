@@ -1,7 +1,7 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { SourceBadge } from '../ui/source-badge';
 
@@ -15,11 +15,15 @@ export class ReleaseDetailPage {
   private readonly route = inject(ActivatedRoute);
 
   readonly vm$ = this.route.paramMap.pipe(
-    switchMap((params) =>
-      this.api.getRelease(params.get('id') ?? '').pipe(
-        map((detail) => ({ state: 'ready' as const, detail, error: '' })),
-        catchError((err) => of({ state: 'error' as const, detail: null, error: err.message })),
-      ),
-    ),
+    switchMap((params) => {
+      const id = params.get('id') ?? '';
+      return forkJoin({
+        detail: this.api.getRelease(id),
+        risk: this.api.getRisk(id).pipe(catchError(() => of(null))),
+      }).pipe(
+        map((data) => ({ state: 'ready' as const, ...data, error: '' })),
+        catchError((err) => of({ state: 'error' as const, detail: null, risk: null, error: err.message })),
+      );
+    }),
   );
 }

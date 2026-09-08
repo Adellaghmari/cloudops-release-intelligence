@@ -94,6 +94,26 @@ export interface ReadyResponse {
   dependencies: Array<{ name: string; status: string }>;
 }
 
+export interface RiskFactor {
+  code: string;
+  label: string;
+  points: number;
+  rationale: string;
+  input: string;
+  omitted: boolean;
+}
+
+export interface RiskResponse {
+  release_id: string;
+  score: number;
+  score_raw: number;
+  category: string;
+  model_version: string;
+  assessed_at: string;
+  disclaimer: string;
+  factors: RiskFactor[];
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;
