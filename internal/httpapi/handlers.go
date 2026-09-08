@@ -1,0 +1,186 @@
+package httpapi
+
+import (
+	"log/slog"
+	"net/http"
+
+	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/adell/cloudops-release-intelligence/internal/service"
+	"github.com/gin-gonic/gin"
+)
+
+type Handler struct {
+	catalog     *service.Catalog
+	logger      *slog.Logger
+	serviceName string
+	version     string
+}
+
+func (h *Handler) Health(c *gin.Context) {
+	c.JSON(http.StatusOK, healthResponse{
+		Status:  "ok",
+		Service: h.serviceName,
+		Version: h.version,
+	})
+}
+
+func (h *Handler) Ready(c *gin.Context) {
+	c.JSON(http.StatusOK, readyResponse{
+		Status:  "ready",
+		Service: h.serviceName,
+		Version: h.version,
+		Dependencies: []readyDependency{
+			{Name: "in_memory_store", Status: "ok"},
+		},
+	})
+}
+
+func (h *Handler) ListServices(c *gin.Context) {
+	src, err := service.ParseSourceQuery(c.Query("source"))
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	list, err := h.catalog.ListServices(c.Request.Context(), src)
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	out := make([]serviceJSON, 0, len(list))
+	for _, s := range list {
+		out = append(out, mapService(s))
+	}
+	c.JSON(http.StatusOK, serviceListResponse{Services: out})
+}
+
+func (h *Handler) GetService(c *gin.Context) {
+	id, err := domain.ParseServiceID(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid service id")
+		return
+	}
+	detail, err := h.catalog.GetService(c.Request.Context(), id)
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	c.JSON(http.StatusOK, serviceDetailResponse{
+		Service:    mapService(detail.Service),
+		DependsOn:  mapDeps(detail.DependsOn),
+		DependedBy: mapDeps(detail.DependedBy),
+	})
+}
+
+func (h *Handler) ListReleases(c *gin.Context) {
+	src, err := service.ParseSourceQuery(c.Query("source"))
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	var serviceID *domain.ServiceID
+	if raw := c.Query("service_id"); raw != "" {
+		id, err := domain.ParseServiceID(raw)
+		if err != nil {
+			writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid service id")
+			return
+		}
+		serviceID = &id
+	}
+	list, err := h.catalog.ListReleases(c.Request.Context(), src, serviceID)
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	out := make([]releaseJSON, 0, len(list))
+	for _, r := range list {
+		out = append(out, mapRelease(r))
+	}
+	c.JSON(http.StatusOK, releaseListResponse{Releases: out})
+}
+
+func (h *Handler) GetRelease(c *gin.Context) {
+	id, err := domain.ParseReleaseID(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid release id")
+		return
+	}
+	detail, err := h.catalog.GetRelease(c.Request.Context(), id)
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	resp := releaseDetailResponse{
+		Release: mapRelease(detail.Release),
+		Service: mapService(detail.Service),
+	}
+	if detail.Commit != nil {
+		v := mapCommit(*detail.Commit)
+		resp.Commit = &v
+	}
+	if detail.Deployment != nil {
+		v := mapDeployment(*detail.Deployment)
+		resp.Deployment = &v
+	}
+	if detail.CIRun != nil {
+		v := mapCIRun(*detail.CIRun)
+		resp.CIRun = &v
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+func mapService(s domain.Service) serviceJSON {
+	return serviceJSON{
+		ID:          s.ID.String(),
+		Name:        s.Name,
+		Description: s.Description,
+		Criticality: string(s.Criticality),
+		Source:      string(s.Source),
+		CreatedAt:   s.CreatedAt,
+		UpdatedAt:   s.UpdatedAt,
+	}
+}
+
+func mapRelease(r domain.Release) releaseJSON {
+	return releaseJSON{
+		ID:          r.ID.String(),
+		ServiceID:   r.ServiceID.String(),
+		Version:     r.Version,
+		GitSHA:      r.GitSHA.String(),
+		Environment: string(r.Environment),
+		Status:      string(r.Status),
+		Source:      string(r.Source),
+		CreatedAt:   r.CreatedAt,
+	}
+}
+
+func mapDeps(deps []domain.Dependency) []dependencyJSON {
+	out := make([]dependencyJSON, 0, len(deps))
+	for _, d := range deps {
+		out = append(out, dependencyJSON{From: d.From.String(), To: d.To.String(), Kind: string(d.Kind)})
+	}
+	return out
+}
+
+func mapCommit(c domain.Commit) commitJSON {
+	return commitJSON{
+		SHA: c.SHA.String(), Message: c.Message, Author: c.Author,
+		FilesChanged: c.FilesChanged, LinesAdded: c.LinesAdded, LinesDeleted: c.LinesDeleted,
+		MigrationPresent: c.MigrationPresent, ConfigChangePresent: c.ConfigChangePresent,
+		CommittedAt: c.CommittedAt,
+	}
+}
+
+func mapDeployment(d domain.Deployment) deploymentJSON {
+	return deploymentJSON{
+		ID: d.ID.String(), Status: string(d.Status), Environment: string(d.Environment),
+		Target: d.Target, ImageDigest: d.ImageDigest, ArtifactURI: d.ArtifactURI,
+		StartedAt: d.StartedAt, CompletedAt: d.CompletedAt,
+	}
+}
+
+func mapCIRun(r domain.CIRun) ciRunJSON {
+	return ciRunJSON{
+		ID: r.ID.String(), WorkflowName: r.WorkflowName, Status: string(r.Status),
+		FailedTests: r.FailedTests, StartedAt: r.StartedAt, CompletedAt: r.CompletedAt,
+	}
+}

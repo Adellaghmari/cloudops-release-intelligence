@@ -1,0 +1,100 @@
+# CV claims matrix
+
+Truthfulness rule: nothing goes on a CV because a package was mentioned, a Terraform resource exists locally, a mock test passed, or documentation describes the intent.
+
+Allowed status values:
+
+| Status | Meaning |
+| --- | --- |
+| PLANNED | Designed, not built |
+| IMPLEMENTED | Code or config exists in this repository |
+| TESTED | Automated tests cover the claim with meaningful assertions |
+| LIVE VERIFIED | Proven in the public/production environment |
+
+LIVE VERIFIED is the only status that supports a strong public claim such as "I deployed X on AWS."
+
+This remains a portfolio project. It is not professional work experience.
+
+## Platform and languages
+
+| Claim | Status | Evidence required | Current evidence |
+| --- | --- | --- | --- |
+| Go backend | TESTED | Public Go API serving real JSON | Local `cmd/api` + `go test ./...`. Not publicly deployed. |
+| Gin HTTP API | TESTED | Versioned REST, tests, live `/api/v1` | Local `/api/v1` health/ready/services/releases + httptest. Not live. |
+| Angular frontend | PLANNED | Public CloudFront/S3 console | None |
+| TypeScript | PLANNED | Angular app compiled and deployed | None |
+| RxJS | PLANNED | HTTP/state streams in the console | None |
+| SCSS | PLANNED | Structured styles, no Tailwind | None |
+
+## AWS
+
+| Claim | Status | Evidence required | Current evidence |
+| --- | --- | --- | --- |
+| AWS Lambda | PLANNED | Terraform-applied functions serving traffic | None |
+| Amazon API Gateway | PLANNED | Public HTTPS API | None |
+| Amazon DynamoDB | PLANNED | Production table with real items | None |
+| Amazon S3 | PLANNED | Frontend origin and/or raw event objects | None |
+| Amazon CloudFront | PLANNED | Public site URL | None |
+| Amazon EventBridge | PLANNED | Custom bus receiving real events | None |
+| Amazon SQS | PLANNED | Worker consuming analysis queue + DLQ | None |
+| Amazon ECR | PLANNED | Immutable image digest deployed to Lambda | None |
+| Amazon CloudWatch | PLANNED | Production logs/metrics in the account | None |
+| AWS X-Ray | PLANNED | Traces for API and worker | None |
+| AWS IAM least privilege | PLANNED | Applied roles with scoped policies | None |
+| GitHub OIDC to AWS | PLANNED | Workflows assume role without static keys | None |
+| AWS Secrets Manager | PLANNED / MAY OMIT | Only if a real secret is required | Intentionally avoided unless necessary |
+
+## Infrastructure, CI, DevSecOps
+
+| Claim | Status | Evidence required | Current evidence |
+| --- | --- | --- | --- |
+| Terraform | PLANNED | `plan`/`apply` of the intended stack | None |
+| GitHub Actions CI | PLANNED | Successful workflow runs on the repo | None |
+| GitHub Actions CD | PLANNED | Staging/prod deploy from main | None |
+| Trivy scanning | PLANNED | Workflow step that can fail the build | None |
+| Syft SBOM | PLANNED | Generated artifact attached to release/build | None |
+| Cosign keyless signing | PLANNED | Signed ECR image verified in CI | None |
+| Open Policy Agent / Rego | PLANNED | Policies execute against real release input | None |
+
+## Product capabilities
+
+| Claim | Status | Evidence required | Current evidence |
+| --- | --- | --- | --- |
+| Release Risk Engine | PLANNED | Persisted score + contributing signals from real logic | Spec only |
+| Deployment Health Comparator | PLANNED | Pre/post windows, raw metrics, verdict | Spec only |
+| Release correlation | PLANNED | Explicit evidence object, not "causation" | Spec only |
+| Change Impact Graph | PLANNED | BFS/DFS blast radius from persisted edges | Spec only |
+| Release Policy Gate | PLANNED | Versioned policy eval with PASS/WARN/BLOCK/MANUAL | Spec only |
+| Rollback Readiness | PLANNED | READY/PARTIAL/NOT READY/UNKNOWN + missing prereqs | Spec only |
+| Release Replay | PLANNED | Deterministic diff of two persisted releases | Spec only |
+| Release evidence timeline | PLANNED | Chronological events from storage | Spec only |
+| Event-driven analysis | PLANNED | Ingest → EventBridge → SQS → worker, not in-request theatre | Spec only |
+| Idempotent ingestion | PLANNED | Duplicate event_id does not double-apply | Spec only |
+| Public recruiter demo | PLANNED | Unauthenticated synthetic scenarios through real logic | Spec only |
+| Self-dogfooding CI evidence | PLANNED | This repo's real SHA/run/deploy metadata visible in-product | Spec only |
+
+## Testing and reliability
+
+| Claim | Status | Evidence required | Current evidence |
+| --- | --- | --- | --- |
+| Go table-driven unit tests | TESTED | Engines covered | Domain/repo/API tests passing locally. Engine packages not started. |
+| Integration tests | PLANNED | Repository/event boundaries | None |
+| Cypress E2E | PLANNED | Recruiter demo paths | None |
+| k6 performance test | PLANNED | Documented run + limitations | None |
+| Dead letter handling | PLANNED | SQS DLQ exists and is observable | None |
+
+## Explicit non-claims
+
+Do not list these on a CV for this project:
+
+- Kubernetes / EKS
+- Python / FastAPI / React / Next.js / Azure / Foundry / RAG / LLMs
+- PostgreSQL as the primary datastore
+- "Scientifically proven causality"
+- "Supports millions of users"
+- Professional production on-call experience
+- NAT Gateway, RDS, or always-on clusters
+
+## Update rule
+
+Update this matrix at the end of every phase. Promote a row only when the evidence column can name a concrete artifact: test name, workflow run URL, Terraform apply, public URL, or CloudWatch log group.
