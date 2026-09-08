@@ -28,6 +28,25 @@ func TestCompareHealthSeededRelease(t *testing.T) {
 	}
 }
 
+func TestRegressionCorrelationIgnoresOtherReleaseWindows(t *testing.T) {
+	store := memory.New()
+	now := time.Date(2026, 9, 8, 21, 0, 0, 0, time.UTC)
+	if err := localseed.Load(t.Context(), store, now); err != nil {
+		t.Fatal(err)
+	}
+	c := NewCatalog(store)
+	a, err := c.CompareHealth(t.Context(), "rel_northstar_regression", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Overall != "SEVERELY_DEGRADED" {
+		t.Fatalf("overall=%s", a.Overall)
+	}
+	if a.Correlation != "LIKELY_RELEASE_CORRELATION" {
+		t.Fatalf("corr=%s reasons=%v", a.Correlation, a.Reasons)
+	}
+}
+
 func TestCompareHealthMissingRelease(t *testing.T) {
 	c := NewCatalog(memory.New())
 	_, err := c.CompareHealth(t.Context(), "rel_missing", time.Now().UTC())

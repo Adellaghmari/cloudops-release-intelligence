@@ -1,6 +1,8 @@
 # Public demo
 
-Unauthenticated. Synthetic data only for Northstar Commerce. Live strips labeled **LIVE** for this repository's own pipeline metadata.
+Unauthenticated. Synthetic data only for Northstar Commerce. Live identities are this product's own catalog rows (`cloudops-api`, `cloudops-web`) with **no invented live releases**.
+
+All Northstar rows are labeled **SYNTHETIC DEMO**.
 
 ## Dynamic time
 
@@ -8,57 +10,43 @@ Seed generates timestamps relative to seed time, stores UTC, renders local in th
 
 ## Scenarios
 
-Each scenario is a set of **inputs**. Verdicts come from engines.
+Each scenario is a set of **inputs**. Verdicts come from engines. Do not treat the notes below as hardcoded UI strings.
 
-### `SAFE_RELEASE`
+### `SAFE_RELEASE` — `rel_northstar_payments_demo`
 
-Routine `notification-worker` change, small diff, CI green, no migration, rollback READY, post-deploy metrics within noise.
+Small `payments-service` change, CI green, no migration, prior successful release with artifact + digest, stable health snapshots.
 
-Expect: LOW risk, STABLE health, policy PASS, rollback READY, no correlation.
+### `RISKY_DATABASE_RELEASE` — `rel_northstar_risky_db`
 
-### `RISKY_DATABASE_RELEASE`
+Large `checkout-api` change with `migration_present` and reversibility recorded as false.
 
-Large `payments-service` change, `migration_present`, fan-out high, rollback PARTIAL (reversibility unknown), CI green.
+### `POST_DEPLOY_REGRESSION` — `rel_northstar_regression`
 
-Expect: HIGH (or CRITICAL if other factors stack), MANUAL_APPROVAL_REQUIRED, rollback PARTIAL.
+`checkout-api` deploy with a healthy baseline and a severely worse post window, plus an open incident.
 
-### `POST_DEPLOY_REGRESSION`
+### `DEPENDENCY_BLAST_RADIUS` — `rel_northstar_blast`
 
-`checkout-api` deploy at T, baseline healthy, post window error_rate and p95 jump, incident opened at T+4m.
+`inventory-service` change. Blast radius is calculated from persisted edges (checkout, storefront, fulfillment depend on inventory).
 
-Expect: health DEGRADED or SEVERELY_DEGRADED, LIKELY RELEASE CORRELATION, policy BLOCK on health rules, rollback READY.
+### `SECURITY_BLOCK` — `rel_northstar_security`
 
-### `DEPENDENCY_BLAST_RADIUS`
+`customer-api` release with a persisted CRITICAL security scan.
 
-Change to `payments-service` with the full graph present.
+### `ROLLBACK_NOT_READY` — `rel_northstar_rollback`
 
-Expect: direct dependent `checkout-api`, transitive `web-storefront`, elevated `dependency_fanout` risk points. Graph payload must match BFS, not a UI constant.
-
-### `SECURITY_BLOCK`
-
-Scan on `inventory-service` artifact with CRITICAL finding.
-
-Expect: policy BLOCK (`security.critical_vuln`), elevated security risk factor.
-
-### `ROLLBACK_NOT_READY`
-
-Release exists, previous artifact missing.
-
-Expect: rollback NOT_READY, `rollback_gap` contributing to risk.
+First `fulfillment-api` release: no previous successful release and no artifact/digest metadata.
 
 ## Demo reset
 
-`POST /api/v1/demo/reset` rebuilds services, edges, the six scenarios, and relative timestamps. Rate-limited. Always through real writers + real engines.
+`POST /api/v1/demo/reset` is still PLANNED. Locally, restarting `go run ./cmd/api` reseeds the memory store.
 
-Frontend scenario switcher calls the API; it does not ship JSON verdicts.
-
-## Recruiter path (ten seconds)
+## Recruiter path
 
 1. See name + tagline
-2. Open `POST_DEPLOY_REGRESSION`
-3. Read risk factors, health delta, graph, policy BLOCK, timeline
-4. Replay against `SAFE_RELEASE`
+2. Open Releases and a SYNTHETIC DEMO scenario
+3. Read risk factors, health comparison, potential impact, policy, rollback, timeline
+4. Open Replay and compare two persisted releases
 
-## Cypress coverage (later)
+## Cypress
 
-Those four clicks plus reset, empty error state, and Architecture page listing only technologies actually used.
+`frontend/cypress/e2e/recruiter.cy.ts` covers the local recruiter path against the running Angular console and Go API. Not a public CloudFront verification.

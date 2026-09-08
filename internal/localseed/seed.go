@@ -20,7 +20,10 @@ func Load(ctx context.Context, store repository.Store, now time.Time) error {
 	if err := seedDependencies(ctx, store, now); err != nil {
 		return err
 	}
-	return seedSyntheticRelease(ctx, store, now)
+	if err := seedSyntheticRelease(ctx, store, now); err != nil {
+		return err
+	}
+	return seedScenarios(ctx, store, now)
 }
 
 func seedServices(ctx context.Context, store repository.Store, now time.Time) error {
@@ -89,6 +92,7 @@ func seedSyntheticRelease(ctx context.Context, store repository.Store, now time.
 		Environment: domain.EnvironmentLocal,
 		Status:      domain.ReleaseStatusDeployed,
 		Source:      domain.DataSourceSynthetic,
+		Scenario:    "SAFE_RELEASE",
 		CreatedAt:   started,
 	}
 	if err := store.CreateRelease(ctx, rel); err != nil {
@@ -112,25 +116,17 @@ func seedSyntheticRelease(ctx context.Context, store repository.Store, now time.
 	if err := store.CreateDeployment(ctx, domain.Deployment{
 		ID: "dep_northstar_payments_demo", ReleaseID: relID, ServiceID: "payments-service",
 		Environment: domain.EnvironmentLocal, Status: domain.DeploymentStatusSucceeded,
-		Target: "local:payments-service", StartedAt: started, CompletedAt: &done,
+		Target: "local:payments-service", ArtifactURI: "s3://northstar-demo/payments/0.1.0.zip",
+		ImageDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		StartedAt:   started, CompletedAt: &done,
 	}); err != nil {
 		return err
 	}
-	svc := domain.ServiceID("payments-service")
-	if err := seedHealthPair(ctx, store, relID, svc, done, now, 400, 0.007, 0.9996, 182); err != nil {
+	svcID := domain.ServiceID("payments-service")
+	if err := seedHealthPair(ctx, store, relID, svcID, done, now, 400, 0.007, 0.9996, 182); err != nil {
 		return err
 	}
-	return store.CreateEvent(ctx, domain.ReleaseEvent{
-		ID:            "evt_northstar_payments_demo_deploy",
-		Type:          domain.EventTypeDeploymentSucceeded,
-		SchemaVersion: "1.0",
-		OccurredAt:    done,
-		IngestedAt:    now,
-		Producer:      domain.EventProducerSynthetic,
-		CorrelationID: "req_local_seed",
-		ReleaseID:     &relID,
-		ServiceID:     &svc,
-	})
+	return seedTimeline(ctx, store, now, relID, svcID, started, done, true, false)
 }
 
 func seedPriorPayments(ctx context.Context, store repository.Store, now time.Time) error {

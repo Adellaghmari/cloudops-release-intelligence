@@ -24,6 +24,7 @@ export interface ReleaseRecord {
   environment: string;
   status: string;
   source: DataSource;
+  scenario?: string;
   created_at: string;
 }
 
@@ -197,6 +198,34 @@ export interface PolicyResponse {
   phase: string;
   rules: PolicyRule[];
   evaluated_at: string;
+}
+
+export interface TimelineEntry {
+  event_id: string;
+  event_type: string;
+  occurred_at: string;
+  producer: string;
+  summary: string;
+  release_id?: string;
+  service_id?: string;
+}
+
+export interface TimelineResponse {
+  release_id: string;
+  entries: TimelineEntry[];
+}
+
+export interface ReplayField {
+  path: string;
+  kind: string;
+  a: string;
+  b: string;
+}
+
+export interface ReplayResponse {
+  a: string;
+  b: string;
+  fields: ReplayField[];
 }
 
 export interface ApiErrorBody {

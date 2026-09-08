@@ -12,7 +12,9 @@ import {
   ImpactResponse,
   PolicyResponse,
   RiskResponse,
+  ReplayResponse,
   RollbackResponse,
+  TimelineResponse,
   ServiceDetailResponse,
   ServiceListResponse,
 } from './models';
@@ -81,6 +83,17 @@ export class ApiService {
     return this.http
       .get<RiskResponse>(`${this.base}/releases/${encodeURIComponent(id)}/risk`)
       .pipe(catchError(toApiError));
+  }
+
+  getTimeline(id: string): Observable<TimelineResponse> {
+    return this.http
+      .get<TimelineResponse>(`${this.base}/releases/${encodeURIComponent(id)}/timeline`)
+      .pipe(catchError(toApiError));
+  }
+
+  replay(a: string, b: string): Observable<ReplayResponse> {
+    let params = new HttpParams().set('a', a).set('b', b);
+    return this.http.get<ReplayResponse>(`${this.base}/replay`, { params }).pipe(catchError(toApiError));
   }
 
   getRollback(id: string): Observable<RollbackResponse> {

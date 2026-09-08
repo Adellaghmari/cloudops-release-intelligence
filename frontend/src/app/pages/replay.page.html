@@ -1,0 +1,38 @@
+<h1>Release Replay</h1>
+<p class="muted">Compare two persisted Northstar releases. Differences are computed from real engine outputs, not invented.</p>
+
+@if (vm$ | async; as vm) {
+  <div class="facts">
+    <label>Release A
+      <select [formControl]="a">
+        @for (rel of vm.releases; track rel.id) {
+          <option [value]="rel.id">{{ rel.scenario || rel.version }} · {{ rel.id }}</option>
+        }
+      </select>
+    </label>
+    <label>Release B
+      <select [formControl]="b">
+        @for (rel of vm.releases; track rel.id) {
+          <option [value]="rel.id">{{ rel.scenario || rel.version }} · {{ rel.id }}</option>
+        }
+      </select>
+    </label>
+  </div>
+  @if (vm.state === 'error') {
+    <p class="error" role="alert">{{ vm.error }}</p>
+  } @else if (vm.diff) {
+    <table>
+      <thead><tr><th>Field</th><th>A</th><th>B</th><th>Delta</th></tr></thead>
+      <tbody>
+        @for (f of vm.diff.fields; track f.path) {
+          <tr>
+            <td class="mono">{{ f.path }}</td>
+            <td>{{ f.a }}</td>
+            <td>{{ f.b }}</td>
+            <td>{{ f.kind }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+}

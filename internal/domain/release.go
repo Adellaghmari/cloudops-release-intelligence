@@ -10,6 +10,7 @@ type Release struct {
 	Environment Environment
 	Status      ReleaseStatus
 	Source      DataSource
+	Scenario    string
 	CreatedAt   time.Time
 }
 

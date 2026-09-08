@@ -73,6 +73,7 @@ type releasePayload struct {
 	Environment string    `json:"environment"`
 	Status      string    `json:"status"`
 	Source      string    `json:"source"`
+	Scenario    string    `json:"scenario,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -182,7 +183,7 @@ func releaseFrom(p releasePayload) domain.Release {
 		ID: domain.ReleaseID(p.ID), ServiceID: domain.ServiceID(p.ServiceID),
 		Version: p.Version, GitSHA: domain.CommitSHA(p.GitSHA),
 		Environment: domain.Environment(p.Environment), Status: domain.ReleaseStatus(p.Status),
-		Source: domain.DataSource(p.Source), CreatedAt: p.CreatedAt,
+		Source: domain.DataSource(p.Source), Scenario: p.Scenario, CreatedAt: p.CreatedAt,
 	}
 }
 

@@ -153,7 +153,7 @@ func (s *Store) CreateRelease(ctx context.Context, r domain.Release) error {
 		EntityType: "RELEASE", Payload: mustPayload(releasePayload{
 			ID: r.ID.String(), ServiceID: r.ServiceID.String(), Version: r.Version,
 			GitSHA: r.GitSHA.String(), Environment: string(r.Environment), Status: string(r.Status),
-			Source: string(r.Source), CreatedAt: r.CreatedAt,
+			Source: string(r.Source), Scenario: r.Scenario, CreatedAt: r.CreatedAt,
 		}),
 	}, r.ID.String())
 }
