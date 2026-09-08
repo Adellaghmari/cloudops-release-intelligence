@@ -1,0 +1,48 @@
+@if (vm$ | async; as vm) {
+  <h1>Operations</h1>
+  @if (vm.state === 'loading') {
+    <p class="status" role="status">Loading operational catalog…</p>
+  } @else if (vm.state === 'error') {
+    <p class="error" role="alert">{{ vm.error }}</p>
+  } @else {
+    <section class="stats" aria-label="Catalog counts">
+      <article>
+        <strong>{{ vm.releases.releases.length }}</strong>
+        <span>Releases</span>
+      </article>
+      <article>
+        <strong>{{ vm.live }}</strong>
+        <span>Live identities</span>
+      </article>
+      <article>
+        <strong>{{ vm.synthetic }}</strong>
+        <span>Synthetic services</span>
+      </article>
+      <article>
+        <strong>{{ vm.ready ? vm.ready.status : '—' }}</strong>
+        <span>{{ vm.health ? vm.health.service + ' ' + vm.health.version : '—' }}</span>
+      </article>
+    </section>
+    <h2>Recent releases</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Release</th>
+          <th>Service</th>
+          <th>Source</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (rel of vm.releases.releases; track rel.id) {
+          <tr>
+            <td><a [routerLink]="['/releases', rel.id]">{{ rel.id }}</a></td>
+            <td>{{ rel.service_id }}</td>
+            <td><app-source-badge [source]="rel.source" /></td>
+            <td>{{ rel.status }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+}

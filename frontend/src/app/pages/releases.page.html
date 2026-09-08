@@ -1,0 +1,31 @@
+<h1>Releases</h1>
+@if (vm$ | async; as vm) {
+  @if (vm.state === 'loading') {
+    <p class="status" role="status">Loading releases…</p>
+  } @else if (vm.state === 'error') {
+    <p class="error" role="alert">{{ vm.error }}</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Service</th>
+          <th>Version</th>
+          <th>Status</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (rel of vm.releases; track rel.id) {
+          <tr>
+            <td><a [routerLink]="['/releases', rel.id]" class="mono">{{ rel.id }}</a></td>
+            <td>{{ rel.service_id }}</td>
+            <td>{{ rel.version }}</td>
+            <td>{{ rel.status }}</td>
+            <td><app-source-badge [source]="rel.source" /></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+}

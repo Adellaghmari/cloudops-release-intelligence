@@ -1,0 +1,57 @@
+@if (vm$ | async; as vm) {
+  @if (vm.state === 'error' || !vm.detail) {
+    <p class="error" role="alert">{{ vm.error || 'Release unavailable' }}</p>
+  } @else {
+    <p><a routerLink="/releases">Releases</a></p>
+    <h1>{{ vm.detail.release.version }}</h1>
+    <p>
+      <app-source-badge [source]="vm.detail.release.source" />
+      <span class="mono"> {{ vm.detail.release.id }}</span>
+      · {{ vm.detail.service.name }}
+    </p>
+
+    <section>
+      <h2>Overview</h2>
+      <dl class="facts">
+        <div><dt>Git SHA</dt><dd class="mono">{{ vm.detail.release.git_sha }}</dd></div>
+        <div><dt>Environment</dt><dd>{{ vm.detail.release.environment }}</dd></div>
+        <div><dt>Status</dt><dd>{{ vm.detail.release.status }}</dd></div>
+        <div><dt>Created</dt><dd>{{ vm.detail.release.created_at | date: 'medium' }}</dd></div>
+      </dl>
+      @if (vm.detail.commit) {
+        <p>{{ vm.detail.commit.message }} — {{ vm.detail.commit.author }} ({{ vm.detail.commit.files_changed }} files)</p>
+      }
+      @if (vm.detail.deployment) {
+        <p>Deployment {{ vm.detail.deployment.status }} to {{ vm.detail.deployment.target }}</p>
+      }
+      @if (vm.detail.ci_run) {
+        <p>CI {{ vm.detail.ci_run.workflow_name }}: {{ vm.detail.ci_run.status }}</p>
+      }
+    </section>
+
+    <section class="reserved">
+      <h2>Risk</h2>
+      <p class="muted">Risk scoring is not implemented yet. This section will show a transparent factor breakdown, not a failure probability.</p>
+    </section>
+    <section class="reserved">
+      <h2>Health</h2>
+      <p class="muted">Pre/post deployment comparison is not implemented yet. Empty windows will be INSUFFICIENT DATA, never silently stable.</p>
+    </section>
+    <section class="reserved">
+      <h2>Potential impact</h2>
+      <p class="muted">Blast radius traversal is not implemented yet. Reachability will not be claimed as observed breakage.</p>
+    </section>
+    <section class="reserved">
+      <h2>Policy</h2>
+      <p class="muted">OPA/Rego evaluation is not implemented yet. Results will show which rule fired and why.</p>
+    </section>
+    <section class="reserved">
+      <h2>Rollback</h2>
+      <p class="muted">Rollback readiness is not implemented yet. This product will not execute production rollback.</p>
+    </section>
+    <section class="reserved">
+      <h2>Timeline</h2>
+      <p class="muted">Evidence timeline and release replay are not implemented yet.</p>
+    </section>
+  }
+}

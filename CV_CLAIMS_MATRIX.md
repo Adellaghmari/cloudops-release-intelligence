@@ -21,10 +21,10 @@ This remains a portfolio project. It is not professional work experience.
 | --- | --- | --- | --- |
 | Go backend | TESTED | Public Go API serving real JSON | Local `cmd/api` + `go test ./...`. Not publicly deployed. |
 | Gin HTTP API | TESTED | Versioned REST, tests, live `/api/v1` | Local `/api/v1` health/ready/services/releases + httptest. Not live. |
-| Angular frontend | PLANNED | Public CloudFront/S3 console | None |
-| TypeScript | PLANNED | Angular app compiled and deployed | None |
-| RxJS | PLANNED | HTTP/state streams in the console | None |
-| SCSS | PLANNED | Structured styles, no Tailwind | None |
+| Angular frontend | TESTED | Public CloudFront/S3 console | Angular 21 local console + production build + unit tests. Not publicly deployed. Angular 22 needs Node ≥22.22.3; this machine has 22.14.0. |
+| TypeScript | TESTED | Angular app compiled and deployed | `ng build` succeeds locally. |
+| RxJS | TESTED | HTTP/state streams in the console | Catalog/release pages use HttpClient + RxJS. |
+| SCSS | TESTED | Structured styles, no Tailwind | Global + component SCSS, no Tailwind. |
 
 ## AWS
 

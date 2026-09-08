@@ -1,0 +1,30 @@
+<h1>Services</h1>
+@if (vm$ | async; as vm) {
+  @if (vm.state === 'loading') {
+    <p class="status" role="status">Loading services…</p>
+  } @else if (vm.state === 'error') {
+    <p class="error" role="alert">{{ vm.error }}</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Criticality</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (svc of vm.services; track svc.id) {
+          <tr>
+            <td>
+              <a [routerLink]="['/services', svc.id]">{{ svc.name }}</a>
+              <div class="mono muted">{{ svc.id }}</div>
+            </td>
+            <td>{{ svc.criticality }}</td>
+            <td><app-source-badge [source]="svc.source" /></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+}

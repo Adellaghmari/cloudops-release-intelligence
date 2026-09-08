@@ -96,6 +96,15 @@ go test ./...
 go run ./cmd/api
 ```
 
+Frontend (Angular 21, Node 22.14 — Angular 22 requires a newer Node than this machine has):
+
+```text
+cd frontend
+npm start
+```
+
+The Angular dev server proxies `/api` to `http://localhost:8080`. Do not use frontend fixture JSON as API data.
+
 Then:
 
 ```text
