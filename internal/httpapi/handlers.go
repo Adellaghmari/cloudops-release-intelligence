@@ -7,6 +7,7 @@ import (
 
 	"github.com/adell/cloudops-release-intelligence/internal/domain"
 	"github.com/adell/cloudops-release-intelligence/internal/events"
+	"github.com/adell/cloudops-release-intelligence/internal/graph"
 	"github.com/adell/cloudops-release-intelligence/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -156,6 +157,20 @@ func (h *Handler) GetReleaseRisk(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetReleaseImpact(c *gin.Context) {
+	id, err := domain.ParseReleaseID(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "INVALID_ID", "invalid release id")
+		return
+	}
+	r, err := h.catalog.Impact(c.Request.Context(), id)
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	c.JSON(http.StatusOK, mapImpact(r))
+}
+
 func (h *Handler) GetReleaseHealth(c *gin.Context) {
 	id, err := domain.ParseReleaseID(c.Param("id"))
 	if err != nil {
@@ -266,6 +281,35 @@ func mapDeployment(d domain.Deployment) deploymentJSON {
 		ID: d.ID.String(), Status: string(d.Status), Environment: string(d.Environment),
 		Target: d.Target, ImageDigest: d.ImageDigest, ArtifactURI: d.ArtifactURI,
 		StartedAt: d.StartedAt, CompletedAt: d.CompletedAt,
+	}
+}
+
+func mapImpact(r graph.Result) impactResponse {
+	ids := func(in []domain.ServiceID) []string {
+		out := make([]string, 0, len(in))
+		for _, id := range in {
+			out = append(out, id.String())
+		}
+		return out
+	}
+	nodes := make([]impactNodeJSON, 0, len(r.Nodes))
+	for _, n := range r.Nodes {
+		nodes = append(nodes, impactNodeJSON{ID: n.ID.String(), Role: n.Role, Depth: n.Depth})
+	}
+	edges := make([]impactEdgeJSON, 0, len(r.Edges))
+	for _, e := range r.Edges {
+		edges = append(edges, impactEdgeJSON{From: e.From.String(), To: e.To.String()})
+	}
+	cycles := make([][]string, 0, len(r.Cycles))
+	for _, cyc := range r.Cycles {
+		cycles = append(cycles, ids(cyc))
+	}
+	return impactResponse{
+		ChangedService: r.ChangedService.String(), DirectDependents: ids(r.DirectDependents),
+		TransitiveDependents: ids(r.TransitiveDependents), Upstream: ids(r.Upstream),
+		CriticalInRadius: ids(r.CriticalInRadius), Nodes: nodes, Edges: edges,
+		MaxDepth: r.MaxDepth, Cycles: cycles, Unknown: r.Unknown, Empty: r.Empty,
+		Algorithm: r.Algorithm, Disclaimer: r.Disclaimer,
 	}
 }
 

@@ -63,7 +63,7 @@ This remains a portfolio project. It is not professional work experience.
 | Release Risk Engine | TESTED | Persisted score + contributing signals from real logic | `internal/risk` + GET /releases/:id/risk. Local only. |
 | Deployment Health Comparator | TESTED | Pre/post windows, raw metrics, verdict | `internal/health` + GET /releases/:id/health. Local only. Not CloudWatch verified. |
 | Release correlation | TESTED | Explicit evidence object, not "causation" | LIKELY/POSSIBLE/NO_CLEAR/INSUFFICIENT_DATA with reasons. Never PROVEN_CAUSE. Local only. |
-| Change Impact Graph | PLANNED | BFS/DFS blast radius from persisted edges | Spec only |
+| Change Impact Graph | TESTED | BFS/DFS blast radius from persisted edges | `internal/graph` + GET /releases/:id/impact + SVG. Language is potential impact. Local only. |
 | Release Policy Gate | PLANNED | Versioned policy eval with PASS/WARN/BLOCK/MANUAL | Spec only |
 | Rollback Readiness | PLANNED | READY/PARTIAL/NOT READY/UNKNOWN + missing prereqs | Spec only |
 | Release Replay | PLANNED | Deterministic diff of two persisted releases | Spec only |

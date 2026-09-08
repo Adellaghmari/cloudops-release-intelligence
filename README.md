@@ -50,7 +50,7 @@ No LLMs. No vector databases. "Intelligence" here means deterministic operationa
 
 ## Current status
 
-**Phase 6 — Deployment Health Comparator (local).** Phases 0–6 are complete locally. There is no production AWS, no EventBridge/SQS execution, and no Terraform apply.
+**Phase 7 — Change Impact Graph (local).** Phases 0–7 are complete locally. There is no production AWS, no EventBridge/SQS execution, and no Terraform apply.
 
 See:
 

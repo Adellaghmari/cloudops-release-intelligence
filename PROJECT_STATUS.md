@@ -1,8 +1,8 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence
-**Phase:** 6 — Deployment Health Comparator
-**Status:** PHASE 6 COMPLETE (local)
+**Phase:** 7 — Change Impact Graph
+**Status:** PHASE 7 COMPLETE (local)
 **Complete:** No
 
 This file is the source of truth for what exists versus what is planned. It must not mark the project COMPLETE until the public product, AWS infrastructure, CI/CD, observability, and live verification criteria in the master build prompt are actually proven.
@@ -38,9 +38,10 @@ Phase 1 is complete when:
 - `POST /api/v1/events` with duplicate EventID detection (202 new / 200 duplicate)
 - Release Risk Engine (`internal/risk`) + GET `/releases/:id/risk`
 - Health comparator + release correlation (`internal/health`) + GET `/releases/:id/health`
-- Angular 21 operations console (local) with Risk and Health on Release Detail
+- Change impact graph (`internal/graph`) + GET `/releases/:id/impact` + SVG visualization
+- Angular 21 operations console (local) with Risk, Health, and Potential Impact on Release Detail
 
-Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, graph/policy/rollback engines, Terraform, GitHub Actions.
+Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, policy/rollback engines, Terraform, GitHub Actions.
 
 ## Test status
 
@@ -71,7 +72,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, graph/policy
 - EventBridge and SQS are not executed. `MemoryBus` is in-process only. Not LIVE VERIFIED.
 - LocalStack was not used (Docker unavailable).
 - No webhooks. GitHub signature verification is specified, not implemented.
-- Graph/policy/rollback engines are not in this phase's committed surface.
+- Policy/rollback engines are not in this phase's committed surface.
 - Module path `github.com/adell/cloudops-release-intelligence` is a placeholder until the public remote exists.
 - Go toolchain is **1.27.0**. Angular is 21 (Node 22.14.0; Angular 22 needs ≥22.22.3).
 - Default local git branch is `main`. No GitHub remote yet.
@@ -91,7 +92,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, graph/policy
 
 ## Remaining work
 
-**Phase 7 — Change Impact Graph** with Angular visualization (local, no AWS).
+**Phase 8 — OPA / Release Policy Gate** (in-process Rego, no AWS).
 
 ## Phase tracker
 
@@ -104,7 +105,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, graph/policy
 | 4 | Release Risk Engine | COMPLETE |
 | 5 | Event architecture foundation (local ports) | COMPLETE (local; EventBridge/SQS not AWS verified) |
 | 6 | Deployment Health Comparator + correlation | COMPLETE (local) |
-| 7 | Change Impact Graph | PLANNED |
+| 7 | Change Impact Graph | COMPLETE (local) |
 | 8 | OPA / Release Policy Gate | PLANNED |
 | 9 | Rollback Readiness | PLANNED |
 | 10 | Release Timeline + Release Replay | PLANNED |
