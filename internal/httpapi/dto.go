@@ -120,3 +120,23 @@ type releaseDetailResponse struct {
 	Deployment *deploymentJSON `json:"deployment,omitempty"`
 	CIRun      *ciRunJSON      `json:"ci_run,omitempty"`
 }
+
+type eventIngestRequest struct {
+	EventID       string            `json:"event_id"`
+	EventType     string            `json:"event_type"`
+	OccurredAt    time.Time         `json:"occurred_at"`
+	CorrelationID string            `json:"correlation_id"`
+	ReleaseID     string            `json:"release_id"`
+	ServiceID     string            `json:"service_id"`
+	Source        string            `json:"source"`
+	SchemaVersion string            `json:"schema_version"`
+	Payload       map[string]string `json:"payload"`
+}
+
+type eventIngestResponse struct {
+	EventID   string `json:"event_id"`
+	Accepted  bool   `json:"accepted"`
+	Duplicate bool   `json:"duplicate"`
+	Pending   bool   `json:"pending,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}

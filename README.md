@@ -50,9 +50,7 @@ No LLMs. No vector databases. "Intelligence" here means deterministic operationa
 
 ## Current status
 
-**Phase 1 — Core domain models + local Go API.**
-
-The backend runs locally with an in-memory repository. There is no AWS, no Angular console, and no Terraform yet.
+**Phase 5 — Event architecture foundation (local).** Phases 0–5 are complete locally. There is no production AWS, no EventBridge/SQS execution, and no Terraform apply.
 
 See:
 
@@ -112,6 +110,7 @@ GET http://localhost:8080/api/v1/health
 GET http://localhost:8080/api/v1/services
 GET http://localhost:8080/api/v1/services?source=synthetic
 GET http://localhost:8080/api/v1/releases/rel_northstar_payments_demo
+POST http://localhost:8080/api/v1/events
 ```
 
 Copy `.env.example` to `.env` for local overrides. Do not put credentials in git.

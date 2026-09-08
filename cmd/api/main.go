@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/adell/cloudops-release-intelligence/internal/config"
+	"github.com/adell/cloudops-release-intelligence/internal/events"
 	"github.com/adell/cloudops-release-intelligence/internal/httpapi"
 	"github.com/adell/cloudops-release-intelligence/internal/localseed"
 	"github.com/adell/cloudops-release-intelligence/internal/repository"
@@ -45,7 +46,7 @@ func main() {
 		logger.Info("local synthetic catalog seeded")
 	}
 
-	engine := httpapi.NewEngine(cfg, service.NewCatalog(store), logger)
+	engine := httpapi.NewEngine(cfg, service.NewCatalog(store), logger, events.NewProcessor(store, 3))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

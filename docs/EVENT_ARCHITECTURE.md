@@ -86,6 +86,29 @@ Until webhook auth is live, GitHub evidence enters via the project's own Actions
 | `github-actions` | OIDC-signed AWS call or webhook HMAC |
 | `cloudops-api` | Internal |
 
+## Local implementation (Phase 5)
+
+Local async behavior is exercised without AWS:
+
+| Port | Local adapter | Production adapter (later) |
+| --- | --- | --- |
+| `events.Bus` | `MemoryBus` (in-process `Processor.Handle`) | EventBridge `PutEvents` (not built) |
+| Worker | `Processor` in the API process | Lambda consumer of SQS (not built) |
+| DLQ | in-memory `Processor.DLQ()` | SQS DLQ `cloudops-analysis-dlq` (not built) |
+| Idempotency | `CreateEvent` conditional on `event_id` | DynamoDB `IDEM#{event_id}` (adapter already designed) |
+
+`POST /api/v1/events` accepts a versioned envelope (`schema_version` `1.0`). New events return `202 Accepted`. Duplicate `event_id` returns `200` with `duplicate: true` and does not create a second domain effect. Malformed IDs, unknown types, and unsupported schema versions return `400 INVALID_EVENT` and are written to the local DLQ.
+
+`policy.evaluated` is persisted for the timeline and does **not** dispatch analysis (`TriggersAnalysis` is false). That prevents an evaluation loop.
+
+Out-of-order: if `release_id` is set but the release row is missing, the event is stored and the result is `pending`. A later release create plus re-ingest of a **new** event_id can complete analysis; a duplicate of the same event_id remains a no-op.
+
+Bounded retries: transient `CreateEvent` failures retry up to 3 times, then the envelope is dead-lettered as poison.
+
+### Not AWS verified
+
+Docker and Java are unavailable on this workstation, so LocalStack, EventBridge, and SQS were not executed. Do not claim real EventBridge/SQS delivery, visibility timeout, or `maxReceiveCount` behavior. Those remain PLANNED until Phase 12 infrastructure exists.
+
 ## Test obligations
 
 - duplicate `event_id`

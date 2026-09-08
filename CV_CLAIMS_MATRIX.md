@@ -35,8 +35,8 @@ This remains a portfolio project. It is not professional work experience.
 | Amazon DynamoDB | TESTED | Production table with real items | Adapter + single-table mapping + conditional EventID writes tested against a local DynamoDB-compatible fake. No production table. Not DynamoDB Local (Docker/Java unavailable). |
 | Amazon S3 | PLANNED | Frontend origin and/or raw event objects | None |
 | Amazon CloudFront | PLANNED | Public site URL | None |
-| Amazon EventBridge | PLANNED | Custom bus receiving real events | None |
-| Amazon SQS | PLANNED | Worker consuming analysis queue + DLQ | None |
+| Amazon EventBridge | PLANNED | Custom bus receiving real events | Local `events.Bus` port + MemoryBus only. No EventBridge resource. Not AWS verified. |
+| Amazon SQS | PLANNED | Worker consuming analysis queue + DLQ | Local Processor + in-memory DLQ. No SQS queue. Not AWS verified. |
 | Amazon ECR | PLANNED | Immutable image digest deployed to Lambda | None |
 | Amazon CloudWatch | PLANNED | Production logs/metrics in the account | None |
 | AWS X-Ray | PLANNED | Traces for API and worker | None |
@@ -68,8 +68,8 @@ This remains a portfolio project. It is not professional work experience.
 | Rollback Readiness | PLANNED | READY/PARTIAL/NOT READY/UNKNOWN + missing prereqs | Spec only |
 | Release Replay | PLANNED | Deterministic diff of two persisted releases | Spec only |
 | Release evidence timeline | PLANNED | Chronological events from storage | Spec only |
-| Event-driven analysis | PLANNED | Ingest → EventBridge → SQS → worker, not in-request theatre | Spec only |
-| Idempotent ingestion | PLANNED | Duplicate event_id does not double-apply | Spec only |
+| Event-driven analysis | TESTED | Ingest → EventBridge → SQS → worker, not in-request theatre | Local envelope + Processor + POST /events + MemoryBus. EventBridge/SQS path not built. Not AWS verified. |
+| Idempotent ingestion | TESTED | Duplicate event_id does not double-apply | Processor + memory/DynamoDB conditional CreateEvent + HTTP 200 duplicate. Local only. |
 | Public recruiter demo | PLANNED | Unauthenticated synthetic scenarios through real logic | Spec only |
 | Self-dogfooding CI evidence | PLANNED | This repo's real SHA/run/deploy metadata visible in-product | Spec only |
 
@@ -78,10 +78,10 @@ This remains a portfolio project. It is not professional work experience.
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
 | Go table-driven unit tests | TESTED | Engines covered | Domain/repo/API tests passing locally. Engine packages not started. |
-| Integration tests | PLANNED | Repository/event boundaries | None |
+| Integration tests | TESTED | Repository/event boundaries | DynamoDB-compatible fake + event processor tests. Not DynamoDB Local / LocalStack. |
 | Cypress E2E | PLANNED | Recruiter demo paths | None |
 | k6 performance test | PLANNED | Documented run + limitations | None |
-| Dead letter handling | PLANNED | SQS DLQ exists and is observable | None |
+| Dead letter handling | TESTED | SQS DLQ exists and is observable | In-process Processor DLQ for malformed/poison/unsupported schema. SQS DLQ not created. |
 
 ## Explicit non-claims
 

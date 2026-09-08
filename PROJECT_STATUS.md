@@ -1,8 +1,8 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence
-**Phase:** 4 — Release Risk Engine
-**Status:** PHASE 4 COMPLETE (local)
+**Phase:** 5 — Event architecture foundation
+**Status:** PHASE 5 COMPLETE (local)
 **Complete:** No
 
 This file is the source of truth for what exists versus what is planned. It must not mark the project COMPLETE until the public product, AWS infrastructure, CI/CD, observability, and live verification criteria in the master build prompt are actually proven.
@@ -34,7 +34,12 @@ Phase 1 is complete when:
 - Local catalog seed (synthetic Northstar + live service identities, no invented live releases)
 - Versioned read APIs for health, readiness, services, releases
 
-Not implemented: production DynamoDB, EventBridge, SQS, risk/health/graph/policy/rollback engines, Angular, Terraform, GitHub Actions.
+- Event envelope (`schema_version` 1.0), local `Processor`, `MemoryBus`, in-process DLQ
+- `POST /api/v1/events` with duplicate EventID detection (202 new / 200 duplicate)
+- Release Risk Engine (`internal/risk`) + GET `/releases/:id/risk`
+- Angular 21 operations console (local)
+
+Not implemented: production DynamoDB, EventBridge, SQS, LocalStack, health/graph/policy/rollback engines, Terraform, GitHub Actions.
 
 ## Test status
 
@@ -42,7 +47,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, risk/health/graph/policy
 | --- | --- |
 | Go unit tests | PASSING (local) |
 | Go integration tests | TESTED against DynamoDB-compatible fake (not DynamoDB Local) |
-| Angular unit tests | NOT STARTED |
+| Angular unit tests | PASSING locally (Phase 3) |
 | Cypress E2E | NOT STARTED |
 | k6 performance | NOT STARTED |
 | Terraform validate | NOT STARTED |
@@ -62,12 +67,13 @@ Not implemented: production DynamoDB, EventBridge, SQS, risk/health/graph/policy
 - Persistence is process-local. Restart wipes state except what `localseed` reloads.
 - DynamoDB adapter is TESTED against an in-process compatible fake. Docker/Java are unavailable, so DynamoDB Local was not run.
 - No AWS resources. Readiness reports `in_memory_store` only.
-- No ingestion API, webhooks, or async worker.
-- No risk/health/graph/policy/rollback computation.
-- No Angular console.
+- EventBridge and SQS are not executed. `MemoryBus` is in-process only. Not LIVE VERIFIED.
+- LocalStack was not used (Docker unavailable).
+- No webhooks. GitHub signature verification is specified, not implemented.
+- Health/graph/policy/rollback engines are not in this phase's committed surface.
 - Module path `github.com/adell/cloudops-release-intelligence` is a placeholder until the public remote exists.
-- Go toolchain installed for this phase is **1.27.0** (current major). Winget did not offer 1.27.1.
-- Default local git branch is still `master` until renamed; CI/CD will target `main`.
+- Go toolchain is **1.27.0**. Angular is 21 (Node 22.14.0; Angular 22 needs ≥22.22.3).
+- Default local git branch is `main`. No GitHub remote yet.
 
 ## Known security limitations
 
@@ -84,7 +90,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, risk/health/graph/policy
 
 ## Remaining work
 
-**Phase 3 — Angular operations console** connected to the local Go API.
+**Phase 6 — Deployment Health Comparator + release correlation** (local, no AWS).
 
 ## Phase tracker
 
@@ -95,7 +101,7 @@ Not implemented: production DynamoDB, EventBridge, SQS, risk/health/graph/policy
 | 2 | DynamoDB + event persistence | COMPLETE |
 | 3 | Angular operations console | COMPLETE |
 | 4 | Release Risk Engine | COMPLETE |
-| 5 | EventBridge + SQS asynchronous processing | PLANNED |
+| 5 | Event architecture foundation (local ports) | COMPLETE (local; EventBridge/SQS not AWS verified) |
 | 6 | Deployment Health Comparator | PLANNED |
 | 7 | Change Impact Graph | PLANNED |
 | 8 | OPA / Release Policy Gate | PLANNED |

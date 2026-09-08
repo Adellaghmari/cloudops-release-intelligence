@@ -52,9 +52,13 @@ internal/domain/         entities, typed IDs, enums, errors
 internal/httpapi/        Gin routers, middleware, DTOs (named to avoid colliding with net/http)
 internal/service/        application use cases
 internal/repository/     persistence ports
-internal/repository/memory/  Phase 1 in-memory adapter
+internal/repository/memory/  in-memory adapter
+internal/repository/dynamo/  AWS SDK v2 adapter (local fake tests)
+internal/events/         envelope, Processor, MemoryBus, local DLQ
+internal/risk/           deterministic risk engine
 internal/config/         env/config
 internal/localseed/      local synthetic + live-identity catalog
+frontend/                Angular 21 operations console
 ```
 
 Reserved for later phases (do not create empty):
@@ -62,8 +66,6 @@ Reserved for later phases (do not create empty):
 ```text
 cmd/worker/
 internal/aws/
-internal/events/
-internal/risk/
 internal/health/
 internal/graph/
 internal/policy/
@@ -71,7 +73,6 @@ internal/rollback/
 internal/replay/
 internal/demo/
 policies/
-frontend/
 infra/
 .github/workflows/
 ```
