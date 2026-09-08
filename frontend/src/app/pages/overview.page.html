@@ -23,6 +23,20 @@
         <span>{{ vm.health ? vm.health.service + ' ' + vm.health.version : '—' }}</span>
       </article>
     </section>
+    <h2>Decision surfaces</h2>
+    <p class="muted">Northstar rows are SYNTHETIC DEMO. Engines below are real application logic.</p>
+    <ul class="surfaces">
+      <li><a [routerLink]="['/releases', 'rel_northstar_payments_demo']" fragment="risk">Risk</a></li>
+      <li><a [routerLink]="['/releases', 'rel_northstar_regression']" fragment="health">Health</a></li>
+      <li><a [routerLink]="['/releases', 'rel_northstar_regression']" fragment="health">Release Correlation</a></li>
+      <li><a [routerLink]="['/releases', 'rel_northstar_blast']" fragment="impact">Potential Impact Graph</a></li>
+      <li><a [routerLink]="['/releases', 'rel_northstar_security']" fragment="policy">Policy Gates</a></li>
+      <li><a [routerLink]="['/releases', 'rel_northstar_rollback']" fragment="rollback">Rollback Readiness</a></li>
+      <li><a [routerLink]="['/releases', 'rel_northstar_payments_demo']" fragment="timeline">Timeline</a></li>
+      <li><a routerLink="/replay">Release Replay</a></li>
+      <li><a routerLink="/architecture">Architecture</a></li>
+      <li><a routerLink="/status">System Status</a></li>
+    </ul>
     <h2>Recent releases</h2>
     <table>
       <thead>

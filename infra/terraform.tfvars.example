@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars locally if you need overrides.
+# Never commit secret values. This file contains no secrets.
+
+aws_region                   = "eu-west-1"
+github_owner                 = "Adellaghmari"
+github_repo                  = "cloudops-release-intelligence"
+create_github_oidc_provider  = true
+api_image_uri                = ""
+budget_notification_email    = ""

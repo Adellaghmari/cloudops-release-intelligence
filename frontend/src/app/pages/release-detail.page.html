@@ -10,7 +10,7 @@
       · {{ vm.detail.service.name }}
     </p>
 
-    <section>
+    <section id="overview">
       <h2>Overview</h2>
       <dl class="facts">
         <div><dt>Git SHA</dt><dd class="mono">{{ vm.detail.release.git_sha }}</dd></div>
@@ -29,7 +29,7 @@
       }
     </section>
 
-    <section>
+    <section id="risk">
       <h2>Risk</h2>
       @if (vm.risk) {
         <p><strong>{{ vm.risk.score }} / 100</strong> {{ vm.risk.category }}</p>
@@ -50,7 +50,7 @@
         <p class="muted">Risk assessment unavailable.</p>
       }
     </section>
-    <section>
+    <section id="health">
       <h2>Health</h2>
       @if (vm.health) {
         <p><strong>{{ vm.health.overall }}</strong> · {{ vm.health.correlation }}</p>
@@ -78,7 +78,7 @@
         <p class="muted">Health comparison unavailable.</p>
       }
     </section>
-    <section>
+    <section id="impact">
       <h2>Potential impact</h2>
       @if (vm.impact) {
         <p class="muted">{{ vm.impact.disclaimer }}</p>
@@ -89,7 +89,7 @@
         <p class="muted">Potential impact graph unavailable.</p>
       }
     </section>
-    <section>
+    <section id="policy">
       <h2>Policy</h2>
       @if (vm.policy) {
         <p><strong>{{ vm.policy.result }}</strong> · {{ vm.policy.phase }} · {{ vm.policy.policy_version }}</p>
@@ -109,7 +109,7 @@
         <p class="muted">Policy evaluation unavailable.</p>
       }
     </section>
-    <section>
+    <section id="rollback">
       <h2>Rollback</h2>
       @if (vm.rollback) {
         <p><strong>{{ vm.rollback.status }}</strong></p>
@@ -130,7 +130,7 @@
         <p class="muted">Rollback readiness unavailable.</p>
       }
     </section>
-    <section>
+    <section id="timeline">
       <h2>Timeline</h2>
       @if (vm.timeline) {
         <table>

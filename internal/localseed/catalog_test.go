@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/repository/memory"
-	"github.com/adell/cloudops-release-intelligence/internal/service"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository/memory"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/service"
 )
 
 func TestCatalogSeesSeededGraph(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/localseed"
-	"github.com/adell/cloudops-release-intelligence/internal/repository/memory"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/localseed"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository/memory"
 )
 
 func TestImpactPaymentsHasDependents(t *testing.T) {

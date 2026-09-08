@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
 )
 
 func TestRulesFireAndPrecedence(t *testing.T) {

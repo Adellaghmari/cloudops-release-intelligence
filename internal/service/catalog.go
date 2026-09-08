@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/repository"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository"
 )
 
 // Catalog is the application service for services and releases.
@@ -131,6 +131,10 @@ func ParseSourceQuery(raw string) (*domain.DataSource, error) {
 		return nil, err
 	}
 	return &src, nil
+}
+
+func (c *Catalog) ListOperationalEvidence(ctx context.Context) ([]domain.OperationalEvidence, error) {
+	return c.store.ListOperationalEvidence(ctx)
 }
 
 func optional[T any](v T, err error) (*T, error) {

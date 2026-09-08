@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/config"
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/events"
-	"github.com/adell/cloudops-release-intelligence/internal/localseed"
-	"github.com/adell/cloudops-release-intelligence/internal/repository/memory"
-	"github.com/adell/cloudops-release-intelligence/internal/service"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/config"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/events"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/localseed"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository/memory"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -33,7 +33,13 @@ func testServer(t *testing.T) http.Handler {
 		CORSOrigins: []string{"http://localhost:4200"},
 	}
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	return NewEngine(cfg, service.NewCatalog(store), logger, events.NewProcessor(store, 3))
+	return NewEngineWith(EngineConfig{
+		Config:    cfg,
+		Catalog:   service.NewCatalog(store),
+		Logger:    logger,
+		Processor: events.NewProcessor(store, 3),
+		Store:     store,
+	})
 }
 
 func TestIngestEventIdempotent(t *testing.T) {
@@ -349,6 +355,41 @@ func TestServiceAndReleaseDetail(t *testing.T) {
 	}
 	if rel.Release.Source != "synthetic" || rel.Commit == nil || rel.Deployment == nil || rel.CIRun == nil {
 		t.Fatalf("detail incomplete: %+v", rel)
+	}
+}
+
+func TestDemoResetIsIdempotentAndKeepsLiveIdentities(t *testing.T) {
+	h := testServer(t)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/demo/reset", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("reset status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/services/cloudops-api", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("live identity missing after reset: %s", rec.Body.String())
+	}
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/releases/rel_northstar_payments_demo", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("synthetic catalog missing after reset: %s", rec.Body.String())
+	}
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatal(rec.Body.String())
+	}
+	var st systemStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &st); err != nil {
+		t.Fatal(err)
+	}
+	if len(st.LiveProjectData) != 0 {
+		t.Fatalf("no live evidence should exist yet: %+v", st.LiveProjectData)
 	}
 }
 

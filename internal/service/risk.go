@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/risk"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/risk"
 )
 
 func (c *Catalog) AssessRisk(ctx context.Context, id domain.ReleaseID, now time.Time) (domain.RiskAssessment, error) {

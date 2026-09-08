@@ -93,7 +93,7 @@ export interface ReadyResponse {
   status: string;
   service: string;
   version: string;
-  dependencies: Array<{ name: string; status: string }>;
+  dependencies: { name: string; status: string }[];
 }
 
 export interface RiskFactor {
@@ -141,7 +141,7 @@ export interface ImpactResponse {
   upstream_dependencies: string[];
   critical_in_radius: string[];
   nodes: ImpactNode[];
-  edges: Array<{ from: string; to: string }>;
+  edges: { from: string; to: string }[];
   max_dependent_depth: number;
   cycles: string[][];
   unknown: boolean;
@@ -234,4 +234,32 @@ export interface ApiErrorBody {
     message: string;
     request_id: string;
   };
+}
+
+export interface OperationalEvidence {
+  id: string;
+  kind: string;
+  git_sha?: string;
+  branch?: string;
+  workflow_name?: string;
+  workflow_run_id?: string;
+  workflow_result?: string;
+  test_result?: string;
+  build_duration_ms?: number;
+  image_digest?: string;
+  artifact_id?: string;
+  security_scan_result?: string;
+  deployment_timestamp?: string;
+  recorded_at: string;
+  source: DataSource;
+  label: string;
+}
+
+export interface SystemStatusResponse {
+  service: string;
+  version: string;
+  git_sha?: string;
+  store: string;
+  live_project_data: OperationalEvidence[];
+  synthetic_demo_note: string;
 }

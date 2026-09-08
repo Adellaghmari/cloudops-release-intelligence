@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/replay"
-	"github.com/adell/cloudops-release-intelligence/internal/timeline"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/replay"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/timeline"
 )
 
 func (c *Catalog) Timeline(ctx context.Context, id domain.ReleaseID) ([]timeline.Entry, error) {

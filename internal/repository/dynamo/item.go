@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
@@ -201,6 +201,24 @@ func healthFrom(p healthPayload) domain.HealthSnapshot {
 		CPUPct: p.CPUPct, MemoryPct: p.MemoryPct, QueueBacklog: p.QueueBacklog,
 		CapturedAt: p.CapturedAt, Source: domain.DataSource(p.Source),
 	}
+}
+
+type opsEvidencePayload struct {
+	ID                  string     `json:"id"`
+	Kind                string     `json:"kind"`
+	GitSHA              string     `json:"git_sha,omitempty"`
+	Branch              string     `json:"branch,omitempty"`
+	WorkflowName        string     `json:"workflow_name,omitempty"`
+	WorkflowRunID       string     `json:"workflow_run_id,omitempty"`
+	WorkflowResult      string     `json:"workflow_result,omitempty"`
+	TestResult          string     `json:"test_result,omitempty"`
+	BuildDurationMS     *int       `json:"build_duration_ms,omitempty"`
+	ImageDigest         string     `json:"image_digest,omitempty"`
+	ArtifactID          string     `json:"artifact_id,omitempty"`
+	SecurityScanResult  string     `json:"security_scan_result,omitempty"`
+	DeploymentTimestamp *time.Time `json:"deployment_timestamp,omitempty"`
+	RecordedAt          time.Time  `json:"recorded_at"`
+	Source              string     `json:"source"`
 }
 
 func eventFrom(p eventPayload) domain.ReleaseEvent {

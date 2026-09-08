@@ -1,14 +1,17 @@
 package httpapi
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/events"
-	"github.com/adell/cloudops-release-intelligence/internal/graph"
-	"github.com/adell/cloudops-release-intelligence/internal/service"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/events"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/graph"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/localseed"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,6 +21,12 @@ type Handler struct {
 	logger      *slog.Logger
 	serviceName string
 	version     string
+	gitSHA      string
+	storeName   string
+	store       repository.Store
+	bus         events.Bus
+	putRaw      func(ctx context.Context, e events.Envelope) error
+	reset       resetGate
 }
 
 func (h *Handler) Health(c *gin.Context) {
@@ -29,14 +38,64 @@ func (h *Handler) Health(c *gin.Context) {
 }
 
 func (h *Handler) Ready(c *gin.Context) {
+	name := "in_memory_store"
+	if h.storeName == "dynamodb" {
+		name = "dynamodb"
+	}
 	c.JSON(http.StatusOK, readyResponse{
 		Status:  "ready",
 		Service: h.serviceName,
 		Version: h.version,
 		Dependencies: []readyDependency{
-			{Name: "in_memory_store", Status: "ok"},
+			{Name: name, Status: "ok"},
 		},
 	})
+}
+
+func (h *Handler) SystemStatus(c *gin.Context) {
+	var live []opsEvidenceJSON
+	if h.catalog != nil {
+		list, err := h.catalog.ListOperationalEvidence(c.Request.Context())
+		if err != nil {
+			writeDomainError(c, h.logger, err)
+			return
+		}
+		live = make([]opsEvidenceJSON, 0, len(list))
+		for _, ev := range list {
+			live = append(live, opsEvidenceJSON{
+				ID: ev.ID.String(), Kind: ev.Kind, GitSHA: ev.GitSHA, Branch: ev.Branch,
+				WorkflowName: ev.WorkflowName, WorkflowRunID: ev.WorkflowRunID, WorkflowResult: ev.WorkflowResult,
+				TestResult: ev.TestResult, BuildDurationMS: ev.BuildDurationMS, ImageDigest: ev.ImageDigest,
+				ArtifactID: ev.ArtifactID, SecurityScanResult: ev.SecurityScanResult,
+				DeploymentTimestamp: ev.DeploymentTimestamp, RecordedAt: ev.RecordedAt,
+				Source: string(ev.Source), Label: "LIVE PROJECT DATA",
+			})
+		}
+	}
+	c.JSON(http.StatusOK, systemStatusResponse{
+		Service:           h.serviceName,
+		Version:           h.version,
+		GitSHA:            h.gitSHA,
+		Store:             h.storeName,
+		LiveProjectData:   live,
+		SyntheticDemoNote: "Northstar Commerce scenarios are SYNTHETIC DEMO. They are computed by real engines and are not production traffic.",
+	})
+}
+
+func (h *Handler) ResetDemo(c *gin.Context) {
+	if h.store == nil {
+		writeError(c, http.StatusServiceUnavailable, "UNAVAILABLE", "store is not configured")
+		return
+	}
+	if !h.reset.allow() {
+		writeError(c, http.StatusTooManyRequests, "RATE_LIMITED", "demo reset is rate limited")
+		return
+	}
+	if err := localseed.ReloadSynthetic(c.Request.Context(), h.store, time.Now().UTC()); err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	c.JSON(http.StatusOK, demoResetResponse{Status: "ok", Reset: "synthetic_northstar", Idempotent: true})
 }
 
 func (h *Handler) ListServices(c *gin.Context) {
@@ -315,6 +374,18 @@ func (h *Handler) IngestEvent(c *gin.Context) {
 	if err != nil {
 		writeDomainError(c, h.logger, err)
 		return
+	}
+	if !result.Duplicate {
+		if h.putRaw != nil {
+			if rawErr := h.putRaw(c.Request.Context(), env); rawErr != nil {
+				h.logger.ErrorContext(c.Request.Context(), "raw_evidence_write_failed", slog.String("event_id", env.EventID.String()))
+			}
+		}
+		if h.bus != nil {
+			if pubErr := h.bus.Publish(c.Request.Context(), env); pubErr != nil {
+				h.logger.ErrorContext(c.Request.Context(), "event_bus_publish_failed", slog.String("event_id", env.EventID.String()))
+			}
+		}
 	}
 	status := http.StatusAccepted
 	if result.Duplicate {

@@ -3,7 +3,7 @@ package dynamo
 import (
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
 )
 
 // Key helpers stay inside the persistence adapter. Domain types never see PK/SK.
@@ -61,4 +61,14 @@ func incidentByReleaseGSI2(releaseID domain.ReleaseID, opened time.Time) (pk, sk
 
 func formatTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339Nano)
+}
+
+func opsEvidencePK() string { return "OPS#LIVE" }
+
+func opsEvidenceSK(at time.Time, id domain.EventID) string {
+	return "EVIDENCE#" + formatTime(at) + "#" + id.String()
+}
+
+func opsEvidenceGSI2(at time.Time, id domain.EventID) (pk, sk string) {
+	return "TYPE#OPS_EVIDENCE", "TIME#" + formatTime(at) + "#" + id.String()
 }

@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
 )
 
 // Store is the persistence port. Implementations must not leak AWS or HTTP types.
@@ -48,4 +48,8 @@ type Store interface {
 	GetPolicyEvaluation(ctx context.Context, releaseID domain.ReleaseID) (domain.PolicyEvaluation, error)
 	PutRollbackAssessment(ctx context.Context, a domain.RollbackAssessment) error
 	GetRollbackAssessment(ctx context.Context, releaseID domain.ReleaseID) (domain.RollbackAssessment, error)
+
+	PutOperationalEvidence(ctx context.Context, e domain.OperationalEvidence) error
+	ListOperationalEvidence(ctx context.Context) ([]domain.OperationalEvidence, error)
+	ResetSynthetic(ctx context.Context) error
 }

@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/graph"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/graph"
 )
 
 func (c *Catalog) Impact(ctx context.Context, id domain.ReleaseID) (graph.Result, error) {

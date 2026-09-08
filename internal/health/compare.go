@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
 )
 
 const ModelVersion = "health-v1"

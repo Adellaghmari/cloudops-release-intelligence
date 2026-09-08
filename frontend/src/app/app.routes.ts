@@ -7,6 +7,7 @@ import { ReleasesPage } from './pages/releases.page';
 import { ReplayPage } from './pages/replay.page';
 import { ServiceDetailPage } from './pages/service-detail.page';
 import { ServicesPage } from './pages/services.page';
+import { StatusPage } from './pages/status.page';
 
 export const routes: Routes = [
   {
@@ -20,6 +21,7 @@ export const routes: Routes = [
       { path: 'releases/:id', component: ReleaseDetailPage },
       { path: 'replay', component: ReplayPage },
       { path: 'architecture', component: ArchitecturePage },
+      { path: 'status', component: StatusPage },
     ],
   },
 ];

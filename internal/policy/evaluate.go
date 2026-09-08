@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/policies"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/policies"
 	"github.com/open-policy-agent/opa/v1/rego"
 )
 

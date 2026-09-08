@@ -39,7 +39,7 @@ export class ImpactGraph {
       cols.set(key, [...(cols.get(key) ?? []), n.id]);
     }
     const keys = [...cols.keys()].sort((a, b) => a - b);
-    const out: Array<{ id: string; role: string; x: number; y: number }> = [];
+    const out: { id: string; role: string; x: number; y: number }[] = [];
     keys.forEach((k, i) => {
       const ids = cols.get(k) ?? [];
       ids.forEach((id, j) => {

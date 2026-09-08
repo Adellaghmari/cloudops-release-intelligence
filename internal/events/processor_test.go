@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/repository"
-	"github.com/adell/cloudops-release-intelligence/internal/repository/memory"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository/memory"
 )
 
 func TestNormalizeAndIdempotency(t *testing.T) {

@@ -138,6 +138,20 @@ func (f *Fake) Query(ctx context.Context, in *dynamodb.QueryInput, _ ...func(*dy
 	return &dynamodb.QueryOutput{Items: items}, nil
 }
 
+func (f *Fake) DeleteItem(ctx context.Context, in *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	tbl := f.table(aws.ToString(in.TableName))
+	pk, sk := strAttr(in.Key["PK"]), strAttr(in.Key["SK"])
+	if bySK, ok := tbl.items[pk]; ok {
+		delete(bySK, sk)
+	}
+	return &dynamodb.DeleteItemOutput{}, nil
+}
+
 func (f *Fake) TransactWriteItems(ctx context.Context, in *dynamodb.TransactWriteItemsInput, _ ...func(*dynamodb.Options)) (*dynamodb.TransactWriteItemsOutput, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

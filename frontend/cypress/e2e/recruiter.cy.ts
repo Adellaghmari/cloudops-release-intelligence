@@ -4,6 +4,7 @@ describe('Recruiter local workflow', () => {
     cy.contains('CloudOps');
     cy.contains('Change. Risk. Impact. Recovery.');
     cy.contains('SYNTHETIC DEMO');
+    cy.contains('System Status');
     cy.contains('a', 'Releases').click();
     cy.contains('SAFE_RELEASE');
     cy.contains('a', 'rel_northstar_payments_demo').click();

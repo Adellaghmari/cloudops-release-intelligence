@@ -5,8 +5,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/repository"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/repository"
 )
 
 var _ repository.Store = (*Store)(nil)
@@ -30,6 +30,7 @@ type Store struct {
 	healthCmp   map[domain.ReleaseID]domain.HealthAssessment
 	policies    map[domain.ReleaseID]domain.PolicyEvaluation
 	rollbacks   map[domain.ReleaseID]domain.RollbackAssessment
+	ops         map[domain.EventID]domain.OperationalEvidence
 }
 
 func New() *Store {
@@ -49,6 +50,7 @@ func New() *Store {
 		healthCmp:   map[domain.ReleaseID]domain.HealthAssessment{},
 		policies:    map[domain.ReleaseID]domain.PolicyEvaluation{},
 		rollbacks:   map[domain.ReleaseID]domain.RollbackAssessment{},
+		ops:         map[domain.EventID]domain.OperationalEvidence{},
 	}
 }
 
@@ -442,4 +444,94 @@ func (s *Store) GetPolicyEvaluation(_ context.Context, releaseID domain.ReleaseI
 		return domain.PolicyEvaluation{}, domain.NotFoundError{Resource: "policy", ID: releaseID.String()}
 	}
 	return e, nil
+}
+
+func (s *Store) PutOperationalEvidence(_ context.Context, ev domain.OperationalEvidence) error {
+	ev = ev.Normalized()
+	if err := ev.Validate(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.ops[ev.ID]; ok {
+		return domain.AlreadyExistsError{Resource: "operational_evidence", ID: ev.ID.String()}
+	}
+	s.ops[ev.ID] = ev
+	return nil
+}
+
+func (s *Store) ListOperationalEvidence(_ context.Context) ([]domain.OperationalEvidence, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]domain.OperationalEvidence, 0, len(s.ops))
+	for _, ev := range s.ops {
+		out = append(out, ev)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].RecordedAt.After(out[j].RecordedAt) })
+	return out, nil
+}
+
+func (s *Store) ResetSynthetic(_ context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	syntheticSvc := map[domain.ServiceID]struct{}{}
+	for id, svc := range s.services {
+		if svc.Source == domain.DataSourceSynthetic {
+			syntheticSvc[id] = struct{}{}
+			delete(s.services, id)
+		}
+	}
+	for key, d := range s.deps {
+		if _, ok := syntheticSvc[d.From]; ok {
+			delete(s.deps, key)
+			continue
+		}
+		if _, ok := syntheticSvc[d.To]; ok {
+			delete(s.deps, key)
+		}
+	}
+	syntheticRel := map[domain.ReleaseID]struct{}{}
+	for id, rel := range s.releases {
+		if rel.Source == domain.DataSourceSynthetic {
+			syntheticRel[id] = struct{}{}
+			delete(s.releases, id)
+		}
+	}
+	for id := range syntheticRel {
+		delete(s.deployments, id)
+		delete(s.commits, id)
+		delete(s.ciRuns, id)
+		delete(s.risks, id)
+		delete(s.scans, id)
+		delete(s.healthCmp, id)
+		delete(s.policies, id)
+		delete(s.rollbacks, id)
+	}
+	for id, h := range s.health {
+		if h.Source == domain.DataSourceSynthetic {
+			delete(s.health, id)
+		}
+	}
+	for id, i := range s.incidents {
+		if i.Source == domain.DataSourceSynthetic {
+			delete(s.incidents, id)
+		}
+	}
+	for id, ev := range s.events {
+		if ev.Producer == domain.EventProducerSynthetic {
+			delete(s.events, id)
+			continue
+		}
+		if ev.ReleaseID != nil {
+			if _, ok := syntheticRel[*ev.ReleaseID]; ok {
+				delete(s.events, id)
+			}
+		}
+	}
+	for id, d := range s.decisions {
+		if _, ok := syntheticRel[d.ReleaseID]; ok {
+			delete(s.decisions, id)
+		}
+	}
+	return nil
 }

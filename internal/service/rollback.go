@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
-	"github.com/adell/cloudops-release-intelligence/internal/rollback"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/rollback"
 )
 
 func (c *Catalog) AssessRollback(ctx context.Context, id domain.ReleaseID, now time.Time) (domain.RollbackAssessment, error) {

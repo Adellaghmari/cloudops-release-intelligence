@@ -3,7 +3,7 @@ package graph
 import (
 	"testing"
 
-	"github.com/adell/cloudops-release-intelligence/internal/domain"
+	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
 )
 
 func svc(id string) domain.Service { return domain.Service{ID: domain.ServiceID(id)} }
