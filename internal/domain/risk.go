@@ -92,6 +92,23 @@ type HealthAssessment struct {
 	Disclaimer   string
 }
 
+type PolicyRule struct {
+	ID           string
+	Result       string
+	Message      string
+	InputExcerpt string
+	Skipped      bool
+}
+
+type PolicyEvaluation struct {
+	ReleaseID     ReleaseID
+	PolicyVersion string
+	Result        string
+	Phase         string
+	Rules         []PolicyRule
+	EvaluatedAt   time.Time
+}
+
 func CategoryForScore(score int) RiskCategory {
 	switch {
 	case score >= 75:

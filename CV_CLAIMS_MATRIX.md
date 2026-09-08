@@ -54,7 +54,7 @@ This remains a portfolio project. It is not professional work experience.
 | Trivy scanning | PLANNED | Workflow step that can fail the build | None |
 | Syft SBOM | PLANNED | Generated artifact attached to release/build | None |
 | Cosign keyless signing | PLANNED | Signed ECR image verified in CI | None |
-| Open Policy Agent / Rego | PLANNED | Policies execute against real release input | None |
+| Open Policy Agent / Rego | TESTED | Policies execute against real release input | `policies/release_gate.rego` evaluated in-process via opa/v1/rego. Local only. |
 
 ## Product capabilities
 
@@ -64,7 +64,7 @@ This remains a portfolio project. It is not professional work experience.
 | Deployment Health Comparator | TESTED | Pre/post windows, raw metrics, verdict | `internal/health` + GET /releases/:id/health. Local only. Not CloudWatch verified. |
 | Release correlation | TESTED | Explicit evidence object, not "causation" | LIKELY/POSSIBLE/NO_CLEAR/INSUFFICIENT_DATA with reasons. Never PROVEN_CAUSE. Local only. |
 | Change Impact Graph | TESTED | BFS/DFS blast radius from persisted edges | `internal/graph` + GET /releases/:id/impact + SVG. Language is potential impact. Local only. |
-| Release Policy Gate | PLANNED | Versioned policy eval with PASS/WARN/BLOCK/MANUAL | Spec only |
+| Release Policy Gate | TESTED | Versioned policy eval with PASS/WARN/BLOCK/MANUAL | Real Rego tests + GET /releases/:id/policy. Fail closed. Local only. |
 | Rollback Readiness | PLANNED | READY/PARTIAL/NOT READY/UNKNOWN + missing prereqs | Spec only |
 | Release Replay | PLANNED | Deterministic diff of two persisted releases | Spec only |
 | Release evidence timeline | PLANNED | Chronological events from storage | Spec only |

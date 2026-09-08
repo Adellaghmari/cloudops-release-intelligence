@@ -58,6 +58,8 @@ internal/events/         envelope, Processor, MemoryBus, local DLQ
 internal/risk/           deterministic risk engine
 internal/health/         pre/post comparator + correlation
 internal/graph/          blast radius traversal
+internal/policy/         in-process OPA evaluation
+policies/                versioned Rego bundle
 internal/config/         env/config
 internal/localseed/      local synthetic + live-identity catalog
 frontend/                Angular 21 operations console
@@ -68,7 +70,6 @@ Reserved for later phases (do not create empty):
 ```text
 cmd/worker/
 internal/aws/
-internal/policy/
 internal/rollback/
 internal/replay/
 internal/demo/

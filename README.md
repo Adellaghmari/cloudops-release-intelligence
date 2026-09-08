@@ -50,7 +50,7 @@ No LLMs. No vector databases. "Intelligence" here means deterministic operationa
 
 ## Current status
 
-**Phase 7 — Change Impact Graph (local).** Phases 0–7 are complete locally. There is no production AWS, no EventBridge/SQS execution, and no Terraform apply.
+**Phase 8 — OPA / Release Policy Gate (local).** Phases 0–8 are complete locally. There is no production AWS, no EventBridge/SQS execution, and no Terraform apply.
 
 See:
 

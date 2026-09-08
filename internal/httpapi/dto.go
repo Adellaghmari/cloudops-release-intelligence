@@ -175,6 +175,23 @@ type impactResponse struct {
 	Disclaimer           string           `json:"disclaimer"`
 }
 
+type policyRuleJSON struct {
+	ID           string `json:"id"`
+	Result       string `json:"result"`
+	Message      string `json:"message"`
+	InputExcerpt string `json:"input_excerpt"`
+	Skipped      bool   `json:"skipped"`
+}
+
+type policyResponse struct {
+	ReleaseID     string           `json:"release_id"`
+	PolicyVersion string           `json:"policy_version"`
+	Result        string           `json:"result"`
+	Phase         string           `json:"phase"`
+	Rules         []policyRuleJSON `json:"rules"`
+	EvaluatedAt   time.Time        `json:"evaluated_at"`
+}
+
 type eventIngestRequest struct {
 	EventID       string            `json:"event_id"`
 	EventType     string            `json:"event_type"`

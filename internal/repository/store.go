@@ -44,4 +44,6 @@ type Store interface {
 	ListHealthSnapshotsByService(ctx context.Context, serviceID domain.ServiceID) ([]domain.HealthSnapshot, error)
 	PutHealthComparison(ctx context.Context, a domain.HealthAssessment) error
 	GetHealthComparison(ctx context.Context, releaseID domain.ReleaseID) (domain.HealthAssessment, error)
+	PutPolicyEvaluation(ctx context.Context, e domain.PolicyEvaluation) error
+	GetPolicyEvaluation(ctx context.Context, releaseID domain.ReleaseID) (domain.PolicyEvaluation, error)
 }

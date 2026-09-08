@@ -89,9 +89,25 @@
         <p class="muted">Potential impact graph unavailable.</p>
       }
     </section>
-    <section class="reserved">
+    <section>
       <h2>Policy</h2>
-      <p class="muted">OPA/Rego evaluation is not implemented yet. Results will show which rule fired and why.</p>
+      @if (vm.policy) {
+        <p><strong>{{ vm.policy.result }}</strong> · {{ vm.policy.phase }} · {{ vm.policy.policy_version }}</p>
+        <table>
+          <thead><tr><th>Rule</th><th>Result</th><th>Why</th></tr></thead>
+          <tbody>
+            @for (r of vm.policy.rules; track r.id) {
+              <tr>
+                <td class="mono">{{ r.id }}</td>
+                <td>{{ r.skipped ? 'SKIPPED' : r.result }}</td>
+                <td>{{ r.message }} <span class="mono muted">{{ r.input_excerpt }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="muted">Policy evaluation unavailable.</p>
+      }
     </section>
     <section class="reserved">
       <h2>Rollback</h2>
