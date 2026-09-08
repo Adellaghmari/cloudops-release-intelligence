@@ -78,9 +78,16 @@
         <p class="muted">Health comparison unavailable.</p>
       }
     </section>
-    <section class="reserved">
+    <section>
       <h2>Potential impact</h2>
-      <p class="muted">Blast radius traversal is not implemented yet. Reachability will not be claimed as observed breakage.</p>
+      @if (vm.impact) {
+        <p class="muted">{{ vm.impact.disclaimer }}</p>
+        <p>Direct dependents: {{ vm.impact.direct_dependents.join(', ') || 'none' }}</p>
+        <p>Transitive dependents: {{ vm.impact.transitive_dependents.join(', ') || 'none' }}</p>
+        <app-impact-graph [graph]="vm.impact" />
+      } @else {
+        <p class="muted">Potential impact graph unavailable.</p>
+      }
     </section>
     <section class="reserved">
       <h2>Policy</h2>

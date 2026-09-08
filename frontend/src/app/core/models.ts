@@ -126,6 +126,28 @@ export interface HealthMetric {
   reason: string;
 }
 
+export interface ImpactNode {
+  id: string;
+  role: string;
+  depth: number;
+}
+
+export interface ImpactResponse {
+  changed_service_id: string;
+  direct_dependents: string[];
+  transitive_dependents: string[];
+  upstream_dependencies: string[];
+  critical_in_radius: string[];
+  nodes: ImpactNode[];
+  edges: Array<{ from: string; to: string }>;
+  max_dependent_depth: number;
+  cycles: string[][];
+  unknown: boolean;
+  empty: boolean;
+  algorithm: string;
+  disclaimer: string;
+}
+
 export interface HealthCompareResponse {
   release_id: string;
   overall: string;

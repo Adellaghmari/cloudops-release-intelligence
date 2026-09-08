@@ -148,6 +148,33 @@ type healthCompareResponse struct {
 	Disclaimer   string             `json:"disclaimer"`
 }
 
+type impactNodeJSON struct {
+	ID    string `json:"id"`
+	Role  string `json:"role"`
+	Depth int    `json:"depth"`
+}
+
+type impactEdgeJSON struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type impactResponse struct {
+	ChangedService       string           `json:"changed_service_id"`
+	DirectDependents     []string         `json:"direct_dependents"`
+	TransitiveDependents []string         `json:"transitive_dependents"`
+	Upstream             []string         `json:"upstream_dependencies"`
+	CriticalInRadius     []string         `json:"critical_in_radius"`
+	Nodes                []impactNodeJSON `json:"nodes"`
+	Edges                []impactEdgeJSON `json:"edges"`
+	MaxDepth             int              `json:"max_dependent_depth"`
+	Cycles               [][]string       `json:"cycles"`
+	Unknown              bool             `json:"unknown"`
+	Empty                bool             `json:"empty"`
+	Algorithm            string           `json:"algorithm"`
+	Disclaimer           string           `json:"disclaimer"`
+}
+
 type eventIngestRequest struct {
 	EventID       string            `json:"event_id"`
 	EventType     string            `json:"event_type"`
