@@ -20,7 +20,6 @@ resource "aws_lambda_function" "api" {
       APP_LOG_LEVEL        = "info"
       APP_SERVICE_NAME     = "cloudops-api"
       DDB_TABLE_NAME       = aws_dynamodb_table.main.name
-      AWS_REGION           = var.aws_region
       EVENT_BUS_NAME       = aws_cloudwatch_event_bus.main.name
       EVENT_SOURCE         = "cloudops.release-intelligence"
       S3_RAW_EVENTS_BUCKET = aws_s3_bucket.raw.bucket
@@ -54,7 +53,6 @@ resource "aws_lambda_function" "worker" {
       APP_SEED_LOCAL = "false"
       APP_LOG_LEVEL  = "info"
       DDB_TABLE_NAME = aws_dynamodb_table.main.name
-      AWS_REGION     = var.aws_region
     }
   }
 
@@ -71,5 +69,7 @@ resource "aws_lambda_event_source_mapping" "worker" {
   function_response_types = ["ReportBatchItemFailures"]
 }
 
-# One Lambda image contains both binaries. image_config.command selects
-# `api` or `worker`. Do not publish a second repository for the worker.
+# One Lambda image contains both binaries plus /var/task/bootstrap (required by
+# provided.al2023). image_config.command sets _HANDLER to `api` or `worker`.
+# Do not publish a second repository for the worker.
+# Do not set AWS_REGION in environment.variables — it is reserved by the runtime.

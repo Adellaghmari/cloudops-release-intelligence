@@ -84,7 +84,11 @@ jobs:
           set -euo pipefail
           test -n "$ECR_URL"
           docker build --target lambda -t "$ECR_URL:sha-${GITHUB_SHA}" .
-          docker image inspect "$ECR_URL:sha-${GITHUB_SHA}" --format 'os={{.Os}} arch={{.Architecture}} user={{.Config.User}} cmd={{json .Config.Cmd}}'
+          docker image inspect "$ECR_URL:sha-${GITHUB_SHA}" --format 'os={{.Os}} arch={{.Architecture}} user={{.Config.User}} entrypoint={{json .Config.Entrypoint}} cmd={{json .Config.Cmd}}'
+      - name: Lambda bootstrap + RIE proof
+        env:
+          ECR_URL: ${{ vars.ECR_REPOSITORY_URL }}
+        run: bash scripts/ci/lambda-image-proof.sh "$ECR_URL:sha-${GITHUB_SHA}"
       - name: Trivy Lambda image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:

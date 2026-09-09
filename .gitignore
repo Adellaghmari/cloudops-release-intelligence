@@ -24,6 +24,8 @@ infra/apply-output.txt
 infra/apply-raw.txt
 infra/tfplan-compute
 infra/tfplan-oidc
+infra/tfplan-compute-retry*
+infra/tfplan-runtime-fix*
 
 # Go
 bin/

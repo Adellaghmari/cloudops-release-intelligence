@@ -132,11 +132,8 @@ jobs:
         run: bash scripts/ci/container-inspect.sh cloudops-api:ci
       - name: Build Lambda image
         run: docker build --target lambda -t cloudops-lambda:ci .
-      - name: Lambda image user
-        run: |
-          user="$(docker image inspect cloudops-lambda:ci --format '{{.Config.User}}')"
-          echo "lambda_user=$user"
-          test "$user" = "1000:1000"
+      - name: Lambda bootstrap + RIE proof
+        run: bash scripts/ci/lambda-image-proof.sh cloudops-lambda:ci
       - name: Trivy HTTP image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
