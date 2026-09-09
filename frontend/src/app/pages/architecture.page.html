@@ -1,17 +1,16 @@
 <h1>Architecture</h1>
-<p>This page lists technologies that exist in this repository today. AWS rows stay planned until a real apply and live check exist.</p>
+<p>Public recruiter demo stack as verified in AWS for Project B. Rows mark what is live versus still hardening work.</p>
 <table>
   <thead>
-    <tr><th>Layer</th><th>In use now</th><th>Not yet live</th></tr>
+    <tr><th>Layer</th><th>LIVE VERIFIED</th><th>Still hardening</th></tr>
   </thead>
   <tbody>
-    <tr><td>Frontend</td><td>Angular 21, TypeScript, RxJS, SCSS, ESLint</td><td>Public CloudFront/S3</td></tr>
-    <tr><td>Backend</td><td>Go, Gin, local API, Lambda/HTTP adapter</td><td>Public API Gateway</td></tr>
-    <tr><td>Persistence</td><td>Memory store + DynamoDB adapter</td><td>Production DynamoDB table</td></tr>
-    <tr><td>Events</td><td>Typed EventID, local processor, EventBridge/SQS adapters</td><td>AWS bus, queue, worker invoke</td></tr>
-    <tr><td>Analysis</td><td>Risk, health, correlation, graph, OPA/Rego, rollback, timeline, replay</td><td>Computed against live AWS data</td></tr>
-    <tr><td>Linux / containers</td><td>Multi-stage Dockerfile, non-root image, SIGTERM shutdown code</td><td>Deployed Lambda container on Amazon Linux</td></tr>
-    <tr><td>CI/CD</td><td>GitHub Actions workflow files (Ubuntu)</td><td>Green run + OIDC deploy</td></tr>
+    <tr><td>Frontend</td><td>Angular 21 SPA on private S3 + CloudFront OAC</td><td>Custom domain / ACM cert for stricter TLS reporting</td></tr>
+    <tr><td>Backend</td><td>API Gateway → Go Lambda → DynamoDB</td><td>GitHub Terraform apply (local state only)</td></tr>
+    <tr><td>Events</td><td>EventBridge → SQS → Go worker → DynamoDB</td><td>Remote Terraform state</td></tr>
+    <tr><td>Analysis</td><td>Risk, health, impact, policy, rollback, timeline, replay</td><td>—</td></tr>
+    <tr><td>Supply chain</td><td>GitHub Actions OIDC, Trivy, Syft, Cosign keyless, ECR digest</td><td>—</td></tr>
+    <tr><td>Evidence labels</td><td>LIVE PROJECT DATA vs SYNTHETIC DEMO (Northstar)</td><td>—</td></tr>
   </tbody>
 </table>
-<p class="muted">Nothing on this page is LIVE VERIFIED in AWS until production evidence is recorded on System Status.</p>
+<p class="muted">Northstar Commerce rows are SYNTHETIC DEMO only. Live identities and deployment metadata belong to this portfolio product.</p>

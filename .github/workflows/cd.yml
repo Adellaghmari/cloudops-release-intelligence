@@ -11,8 +11,34 @@ permissions:
 
 env:
   AWS_REGION: eu-west-1
+  WEB_BUCKET: cloudops-prod-web-7be25877
+  CLOUDFRONT_DISTRIBUTION_ID: E2220NQVG6GU75
 
 jobs:
+  changes:
+    name: path-filter
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'cmd/**'
+              - 'internal/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Dockerfile'
+              - 'lambda/**'
+              - 'scripts/ci/lambda-image-proof.sh'
+              - 'policies/**'
+            frontend:
+              - 'frontend/**'
+
   publish-evidence:
     name: record-pipeline-evidence
     runs-on: ubuntu-latest
@@ -38,10 +64,12 @@ jobs:
           path: sbom/pipeline-evidence.json
 
   deploy:
-    name: aws-oidc-deploy
+    name: aws-oidc-deploy-lambda
     runs-on: ubuntu-latest
-    needs: [publish-evidence]
-    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    needs: [publish-evidence, changes]
+    if: >
+      vars.AWS_DEPLOY_ROLE_ARN != '' &&
+      (needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: read
       id-token: write
@@ -190,3 +218,87 @@ jobs:
           curl -fsS -X POST "${API_URL}/api/v1/events" \
             -H "content-type: application/json" \
             -d "{\"event_id\":\"evt_gha_${GITHUB_RUN_ID}\",\"event_type\":\"ci.run.completed\",\"occurred_at\":\"${NOW}\",\"source\":\"github-actions\",\"schema_version\":\"1.0\",\"service_id\":\"cloudops-api\",\"payload\":{\"git_sha\":\"${GITHUB_SHA}\",\"branch\":\"${GITHUB_REF_NAME}\",\"workflow_run_id\":\"${GITHUB_RUN_ID}\",\"workflow_name\":\"${GITHUB_WORKFLOW}\",\"workflow_result\":\"success\",\"image_digest\":\"${IMAGE_DIGEST:-}\"}}"
+
+  deploy-frontend:
+    name: aws-oidc-deploy-frontend
+    runs-on: ubuntu-latest
+    needs: [publish-evidence, changes]
+    if: >
+      vars.AWS_DEPLOY_ROLE_ARN != '' &&
+      (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Production Angular build
+        working-directory: frontend
+        run: npm run build -- --configuration=production
+      - name: Guard against secrets in bundle
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          OUT="dist/frontend/browser"
+          test -d "$OUT"
+          if grep -R -n -E -i 'AKIA[0-9A-Z]{16}|aws_secret_access_key|BEGIN (RSA |EC )?PRIVATE KEY|localhost:8080' "$OUT" ; then
+            echo "Forbidden material found in production bundle"
+            exit 1
+          fi
+          grep -R -n '8kci5uht3d.execute-api.eu-west-1.amazonaws.com' "$OUT" >/dev/null
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+      - name: Prove OIDC assumption
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity
+          aws sts get-caller-identity --query Arn --output text | grep -q 'assumed-role/cloudops-prod-github-deploy/'
+      - name: Sync SPA to private S3 web bucket
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          OUT="dist/frontend/browser"
+          # Hashed assets: long cache
+          aws s3 sync "$OUT" "s3://${WEB_BUCKET}/" \
+            --delete \
+            --exclude "index.html" \
+            --cache-control "public,max-age=31536000,immutable"
+          # index.html: short/no cache so SPA shell updates immediately
+          aws s3 cp "$OUT/index.html" "s3://${WEB_BUCKET}/index.html" \
+            --cache-control "public,max-age=60,must-revalidate" \
+            --content-type "text/html"
+      - name: Invalidate CloudFront
+        run: |
+          set -euo pipefail
+          ID="$(aws cloudfront create-invalidation \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)"
+          echo "invalidation_id=$ID"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --id "$ID"
+      - name: Post frontend deploy live evidence
+        env:
+          API_URL: ${{ vars.PUBLIC_API_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL:-}" ]; then
+            echo "PUBLIC_API_URL not set; skip dogfood ingest"
+            exit 0
+          fi
+          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          curl -fsS -X POST "${API_URL}/api/v1/events" \
+            -H "content-type: application/json" \
+            -d "{\"event_id\":\"evt_fe_${GITHUB_RUN_ID}\",\"event_type\":\"ci.run.completed\",\"occurred_at\":\"${NOW}\",\"source\":\"github-actions\",\"schema_version\":\"1.0\",\"service_id\":\"cloudops-web\",\"payload\":{\"git_sha\":\"${GITHUB_SHA}\",\"branch\":\"${GITHUB_REF_NAME}\",\"workflow_run_id\":\"${GITHUB_RUN_ID}\",\"workflow_name\":\"${GITHUB_WORKFLOW}\",\"workflow_result\":\"success\",\"surface\":\"frontend-cloudfront\",\"distribution_id\":\"${CLOUDFRONT_DISTRIBUTION_ID}\",\"web_bucket\":\"${WEB_BUCKET}\"}}"
