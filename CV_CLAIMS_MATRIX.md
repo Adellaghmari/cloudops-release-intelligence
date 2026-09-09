@@ -51,7 +51,7 @@ This remains a portfolio project. It is not professional work experience.
 | Terraform | LIVE VERIFIED | `plan`/`apply` of the intended stack | Stack applied; TLS apply attempted; residual CF default-cert TLS reporting drift. Local state; GitHub apply DISABLED. |
 | GitHub Actions CI | LIVE VERIFIED | Successful workflow runs on the repo | [ci 34379595516](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34379595516). |
 | GitHub Actions CD | LIVE VERIFIED | OIDC + immutable ECR push from main | [cd 34379595587](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34379595587); path filters now skip Lambda on frontend/docs-only. |
-| Frontend CD (S3+CF) | LIVE VERIFIED | OIDC sync + CreateInvalidation from Actions | [cd 34384226392](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34384226392): build/OIDC/S3/CreateInvalidation; waiter blocked on missing `GetInvalidation` (deferred TF). First upload was manual admin. |
+| Frontend CD (S3+CF) | LIVE VERIFIED | OIDC sync + CreateInvalidation from Actions | [cd 34384490644](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34384490644) success (Lambda skipped). Waiter/`GetInvalidation` deferred to Phase 16 TF. First upload was manual admin. |
 | Trivy scanning | LIVE VERIFIED | Workflow step that can fail the build | CRITICAL gate on `ef3778d5…`. |
 | Syft SBOM | LIVE VERIFIED | Generated artifact attached to release/build | CD SBOM for Lambda image. |
 | Cosign keyless signing | LIVE VERIFIED | Signed ECR image verified in CI | tlog `2771504438`. |

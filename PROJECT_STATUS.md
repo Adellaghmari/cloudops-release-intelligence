@@ -17,7 +17,7 @@
 - CORS from CloudFront origin allowed; `evil.example` gets no `Access-Control-Allow-Origin`
 - LIVE vs SYNTHETIC labeling in UI; dogfood row `evt_gha_phase15a1b2c3d4` shows git SHA `9710098e…`, CD run `34379595587`, digest `sha256:ef3778d5…`
 - First SPA upload: manual `adel-admin` `aws s3 sync` + invalidation `IOLP72QIXMZIGX0SAGC7SUH68`
-- GitHub OIDC frontend deploy: [cd 34384226392](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34384226392) — OIDC assume + production build + S3 sync + CreateInvalidation `IB6HBFZKYWD0KL9A5U4ANPY9TM`; Lambda skipped; digests unchanged `ef3778d5…`; job failed only on `wait invalidation-completed` (`GetInvalidation` missing). Workflow updated to create-only; IAM expansion deferred to Phase 16 Terraform review
+- GitHub OIDC frontend deploy LIVE: [cd 34384490644](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34384490644) — OIDC assume + production build + S3 sync + CreateInvalidation; Lambda skipped; digests unchanged `ef3778d5…`. Prior attempt [34384226392](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34384226392) failed only on waiter (`GetInvalidation` missing; waiter removed; IAM expansion deferred to Phase 16)
 - CD path filters skip Lambda on frontend/docs/workflow-only pushes; `workflow_dispatch` Lambda rebuild requires explicit `force_lambda` input
 
 ### Backend (unchanged digest)
