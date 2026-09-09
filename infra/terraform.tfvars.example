@@ -10,5 +10,10 @@ github_repo                 = "cloudops-release-intelligence"
 create_github_oidc_provider = true
 api_image_uri               = ""
 
+# After infra/bootstrap apply (Phase 16B), set these from bootstrap outputs:
+# terraform_state_bucket_arn  = "arn:aws:s3:::cloudops-prod-tfstate-xxxxxxxx"
+# terraform_state_bucket_name = "cloudops-prod-tfstate-xxxxxxxx"
+# terraform_state_key         = "cloudops-release-intelligence/prod/terraform.tfstate"
+
 # Required for $5 warning and $10 stronger AWS Budget notifications.
 # budget_notification_email = "you@example.com"

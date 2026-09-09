@@ -48,7 +48,13 @@ DynamoDB subsegments are optional instrumentation; not required for Project Comp
 - Plan role keeps `ReadOnlyAccess` for refresh; bootstrap adds scoped state lock/object permissions.
 - Deploy role product permissions are resource-scoped where AWS allows.
 
-## Project Complete gate (Phase 16B)
+## Remote state ownership (16A.1)
+
+- Bootstrap: S3 foundation only (no GitHub IAM attachments).
+- Main: GitHub plan/apply state-object IAM + existing deploy hardening.
+- First migration uses local `adel-admin`, then GitHub gains state access via main-stack policies.
+- Discard pre-migration saved plans after `init -migrate-state`; replan on remote backend before apply.
+
 
 Required:
 

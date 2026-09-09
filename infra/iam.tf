@@ -57,7 +57,12 @@ data "aws_iam_policy_document" "github_plan_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${local.github_repo_full_oidc}:*"]
+      values = [
+        # Narrower than repo:* — main branch workflows and same-repo pull_request only.
+        # Do not use pull_request_target with this role. Skip AWS plan for fork PRs in Actions.
+        "repo:${local.github_repo_full_oidc}:ref:refs/heads/main",
+        "repo:${local.github_repo_full_oidc}:pull_request",
+      ]
     }
   }
 }
