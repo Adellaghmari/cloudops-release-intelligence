@@ -47,10 +47,25 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+      - name: Show OIDC claims without printing the token
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request, base64
+          req_url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=sts.amazonaws.com"
+          req = urllib.request.Request(req_url, headers={"Authorization": "bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]})
+          with urllib.request.urlopen(req) as resp:
+              token = json.load(resp)["value"]
+          payload = token.split(".")[1] + "=" * ((4 - len(token.split(".")[1]) % 4) % 4)
+          claims = json.loads(base64.urlsafe_b64decode(payload))
+          for key in ("iss", "aud", "sub", "repository", "ref", "job_workflow_ref"):
+              print(f"{key}={claims.get(key)}")
+          PY
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
       - name: Prove OIDC assumption
         id: oidc
         run: |
