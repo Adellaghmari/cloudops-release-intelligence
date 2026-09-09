@@ -73,6 +73,14 @@ nav a.active {
   line-height: 1.4;
 }
 
+.aside-note.thesis {
+  margin-top: 0.35rem;
+  margin-bottom: 0.75rem;
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .top {
   border-bottom: 1px solid var(--stroke);
   padding: 0.85rem 1.5rem;

@@ -18,6 +18,9 @@ terraform.tfstate.backup
 *.tfstate.*
 infra/.aws-login-config
 infra/tfplan
+infra/tfplan*
+infra/plan-*.txt
+infra/apply-*.txt
 infra/plan-output.txt
 infra/plan-raw.txt
 infra/apply-output.txt
@@ -26,6 +29,8 @@ infra/tfplan-compute
 infra/tfplan-oidc
 infra/tfplan-compute-retry*
 infra/tfplan-runtime-fix*
+infra/tfplan-dynamodb*
+infra/tfplan-cloudfront*
 
 # Go
 bin/
