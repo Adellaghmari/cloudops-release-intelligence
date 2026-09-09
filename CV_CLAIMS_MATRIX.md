@@ -40,18 +40,18 @@ This remains a portfolio project. It is not professional work experience.
 | Amazon ECR | LIVE VERIFIED | Immutable image exists in the repository | `sha256:ef3778d5…`. |
 | Amazon CloudWatch | LIVE VERIFIED | Intended log groups and DLQ alarm exist | App logs + DLQ alarm (prior). |
 | AWS X-Ray | LIVE VERIFIED | Traces for API and worker | Prior successful API/worker traces. |
-| AWS IAM least privilege | LIVE VERIFIED (bounded) | Applied roles with scoped policies | Deploy role scoped (ECR repo, Lambdas, web bucket, CF dist) + `GetInvalidation`; state IAM prefix-restricted. Plan role still has AWS **ReadOnlyAccess** — not fully least privilege. No AdministratorAccess. |
-| GitHub OIDC to AWS | LIVE VERIFIED | Workflows assume role without static keys | CD deploy + Terraform plan roles proven (`cloudops-prod-github-deploy`, `cloudops-prod-github-plan`). |
+| AWS IAM least privilege | LIVE VERIFIED (bounded) | Applied roles with scoped policies | Deploy writes scoped (ECR/Lambda/S3/CF) + `GetInvalidation` + prefix-restricted state IAM. Plan **and** deploy/apply roles retain AWS **ReadOnlyAccess** for Terraform refresh — broad read compatibility, **not** fully least privilege. No AdministratorAccess. |
+| GitHub OIDC to AWS | LIVE VERIFIED | Workflows assume role without static keys | CD + Terraform plan + Terraform apply OIDC proven (`cloudops-prod-github-deploy`, `cloudops-prod-github-plan`). |
 | AWS Secrets Manager | PLANNED / MAY OMIT | Only if a real secret is required | Intentionally avoided unless necessary |
 
 ## Infrastructure, CI, DevSecOps
 
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
-| Terraform | LIVE VERIFIED | `plan`/`apply` of the intended stack | Product stack live on remote S3 state (`cloudops-prod-tfstate-7d9fdd77`, `use_lockfile=true`). Local hardening apply 16B Part 2. GitHub **plan** LIVE; GitHub **apply** DISABLED. |
-| Terraform remote state + S3 lockfile | LIVE VERIFIED | S3 backend + native lock | Migrated Part 1; lock contention proven; Part 2 GitHub plan refreshed remote state; idle `.tflock` absent. |
+| Terraform | LIVE VERIFIED | `plan`/`apply` of the intended stack | Product stack live on remote S3 state (`cloudops-prod-tfstate-7d9fdd77`, `use_lockfile=true`). GitHub plan + controlled no-op apply proven; apply gate re-disabled. |
+| Terraform remote state + S3 lockfile | LIVE VERIFIED | S3 backend + native lock | Migrated Part 1; lock contention proven; GitHub plan/apply acquire/release lock; idle `.tflock` absent. |
 | GitHub Terraform PLAN (OIDC) | LIVE VERIFIED | Plan role + remote state from Actions | [terraform 34389687373](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34389687373) → `cloudops-prod-github-plan`, **No changes**. |
-| GitHub Terraform APPLY | IMPLEMENTED (gated off) | Apply from Actions | `ENABLE_TERRAFORM_APPLY=false`; apply job still hard-gated. Not LIVE VERIFIED. |
+| GitHub Terraform APPLY (controlled) | LIVE VERIFIED | Gated no-op apply from Actions | [terraform 34399074308](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34399074308): deploy OIDC, same-job 0/0/0 plan, apply **0/0/0**. Gate re-set `ENABLE_TERRAFORM_APPLY=false`; negative skip [34399312899](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34399312899). |
 | GitHub Actions CI | LIVE VERIFIED | Successful workflow runs on the repo | [ci 34379595516](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34379595516). |
 | GitHub Actions CD | LIVE VERIFIED | OIDC + immutable ECR push from main | [cd 34379595587](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34379595587); path filters now skip Lambda on frontend/docs-only. |
 | Frontend CD (S3+CF) | LIVE VERIFIED | OIDC sync + CreateInvalidation + waiter | [cd 34389391377](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34389391377): deploy OIDC + invalidation `IEJAC1M2X6OEE1YRXIV7RKLC8` **Completed** via `GetInvalidation`. |
@@ -101,8 +101,8 @@ Do not list these on a CV for this project:
 - Professional production on-call experience
 - NAT Gateway, RDS, or always-on clusters
 - CloudFront default-cert TLS floor reporting as TLSv1.2_2021 (AWS reports TLSv1; Terraform now aligned)
-- GitHub Terraform **apply** (plan is LIVE VERIFIED; apply remains disabled)
-- Fully least-privilege GitHub plan IAM while `ReadOnlyAccess` remains attached
+- Fully least-privilege GitHub plan/apply IAM while `ReadOnlyAccess` remains attached
+- Permanent unattended Terraform apply on every push (apply is gated off by default after the controlled proof)
 
 ## Update rule
 

@@ -1,53 +1,63 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence  
-**Phase:** 16B Part 2 COMPLETE (IAM hardening applied; frontend waiter + GitHub Terraform PLAN proven)  
-**Status:** Public demo LIVE; remote state + OIDC plan proven; GitHub apply still DISABLED  
-**Complete:** No (controlled GitHub Terraform apply not authorized yet)
+**Phase:** 16B Part 3 COMPLETE  
+**Status:** **PROJECT B COMPLETE**  
+**Complete:** Yes (custom domain optional; Project C not started)
 
 ## LIVE VERIFIED baseline
 
-- Frontend / health / ready HTTP 200
+- Frontend `https://d34fwrlm14h6js.cloudfront.net` HTTP 200
+- Backend `/api/v1/health` + `/api/v1/ready` HTTP 200
 - Lambdas Active on `sha256:ef3778d5af9e80d155610d5ffb0a889e509a4ba3da3fee2ac6878c6c5287ade5`
 - Operator `adel-admin` / `eu-west-1`
 
-## Phase 16B Part 2 (this phase)
+## Phase 16B Part 3 — controlled GitHub Terraform apply
 
-### Local IAM hardening apply
-- Applied exact `infra/tfplan-hardening-16b-remote-1` via remote S3 backend: **2 add / 2 change / 0 destroy**
-- Main remote state address count after apply: **55** (was 50; +2 role policies + related data sources)
-- New remote state S3 version written; idle `.tflock` absent after apply
+### Workflow safety
+- Apply only on `workflow_dispatch` + `apply=true` + `ENABLE_TERRAFORM_APPLY=true` + `environment: prod`
+- Never on push/PR
+- Same-job plan must be no-op (`-detailed-exitcode`) or apply is refused
+- Apply uses `cloudops-prod-github-deploy` via OIDC (not plan role / static keys)
+- Deploy role also has AWS managed **ReadOnlyAccess** for Terraform refresh during apply (broad read — not fully least privilege)
 
-### IAM / OIDC verification
-- Plan + deploy roles: state object Get/Put (no DeleteObject); lock object Get/Put/Delete; ListBucket prefix-restricted
-- Plan trust immutable subjects `Adellaghmari@179922674` / `cloudops-release-intelligence@1361976389` for `main` + `pull_request` only (no `repo:…:*`, no `pull_request_target`)
-- Deploy policy includes `cloudfront:GetInvalidation` on `E2220NQVG6GU75`
-- Plan role retains AWS managed **ReadOnlyAccess** (broad refresh compatibility — **not** fully least privilege)
-- No AdministratorAccess
-
-### Frontend CD invalidation waiter
-- Hard waiter (no soft-ignore) via OIDC deploy role
-- Run: https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34389391377 (success)
+### Controlled no-op apply proof
+- Gate enabled only for the run, then immediately set `ENABLE_TERRAFORM_APPLY=false`
+- Run: https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34399074308 (**success**)
+- SHA: `8232ee0`
 - Assumed: `assumed-role/cloudops-prod-github-deploy/GitHubActions`
-- Invalidation `IEJAC1M2X6OEE1YRXIV7RKLC8` → **Completed**
+- Terraform **v1.10.5**; S3 backend `cloudops-prod-tfstate-7d9fdd77` / `cloudops-release-intelligence/prod/terraform.tfstate` / `use_lockfile`
+- Same-job plan: **No changes**
+- Apply: **0 added / 0 changed / 0 destroyed**
+- Lock acquired/released; idle `.tflock` absent afterward
 
-### GitHub Terraform PLAN
-- `TERRAFORM_REMOTE_STATE_READY=true`
-- `ENABLE_TERRAFORM_APPLY=false`
-- Run: https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34389687373 (success)
-- Assumed: `assumed-role/cloudops-prod-github-plan/GitHubActions`
-- Remote S3 backend init + full refresh; plan result: **No changes (0/0/0)**
-- Fork PRs blocked from AWS plan credentials; fmt/validate remain non-AWS
+### Negative apply-gate proof
+- After disable: dispatch with `apply=true` → apply job **skipped**
+- Run: https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34399312899
+- `ENABLE_TERRAFORM_APPLY=false` (final operational posture)
 
-## Still DISABLED / not LIVE VERIFIED
+### Final posture
+| Gate | Value |
+| --- | --- |
+| `TERRAFORM_REMOTE_STATE_READY` | `true` |
+| `ENABLE_TERRAFORM_APPLY` | `false` |
 
-- GitHub Terraform **apply**
-- Custom domain / ACM
-- Project C
+## Prior LIVE VERIFIED (16B Part 1–2)
 
-## Next (authorized later)
+- Remote S3 state + native lockfile + lock contention
+- IAM hardening apply (state policies, GetInvalidation, immutable plan OIDC)
+- Frontend CloudFront invalidation waiter
+- GitHub Terraform PLAN via `cloudops-prod-github-plan`
 
-1. Explicit approval for controlled GitHub no-op apply
-2. Set `ENABLE_TERRAFORM_APPLY=true` temporarily
-3. Replace apply-job hard-exit stub with real `terraform apply` under review
-4. `workflow_dispatch` apply=true against the proven 0/0/0 config — then re-disable apply
+## Explicit non-goals (not required for COMPLETE)
+
+- Custom domain / ACM / TLSv1.2_2021 viewer policy on default `*.cloudfront.net`
+- Fully least-privilege plan/apply IAM while ReadOnlyAccess remains
+- Project C (Secure Integration Hub)
+- Backend image rebuild
+
+## Optional polish (separate future work)
+
+1. Purchased domain + ACM (us-east-1) + CloudFront alias + modern TLS policy
+2. Narrower replacement for ReadOnlyAccess on plan/apply roles
+3. Temporary re-enable of apply for intentional infra changes only

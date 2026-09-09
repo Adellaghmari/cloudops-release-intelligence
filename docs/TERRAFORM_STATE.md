@@ -1,6 +1,6 @@
 # Terraform state
 
-## Current strategy (Phase 16B Part 2 — LIVE)
+## Current strategy (Phase 16B Part 3 — PROJECT COMPLETE)
 
 Main stack state is on **S3**:
 
@@ -13,7 +13,10 @@ Main stack state is on **S3**:
 Bootstrap stack state remains **local** under `infra/bootstrap/terraform.tfstate` (intentional; backed up in gitignored `infra/state-backups/`).
 
 GitHub Terraform **plan** is LIVE VERIFIED (`TERRAFORM_REMOTE_STATE_READY=true`).  
-GitHub Terraform **apply remains DISABLED** (`ENABLE_TERRAFORM_APPLY=false`).
+GitHub Terraform **controlled apply** is LIVE VERIFIED once (no-op), then the gate was re-disabled:
+
+- `ENABLE_TERRAFORM_APPLY=false` (final posture)
+- Re-enable only for an explicit maintenance window
 
 Pre-migration main backup (gitignored):
 
@@ -59,9 +62,9 @@ Gitignored vars / CI `TF_VAR_*` after bootstrap:
 - state object: `s3:GetObject` + `s3:PutObject` (**no** `DeleteObject`)
 - lock object `<key>.tflock`: Get/Put/Delete
 
-Applied via `tfplan-hardening-16b-remote-1` (**2/2/0**).
+Applied via `tfplan-hardening-16b-remote-1` (**2/2/0**), plus Part 3 `github_deploy_readonly` ReadOnlyAccess attachment for apply-job refresh.
 
-Plan role also retains AWS managed `ReadOnlyAccess` for refresh compatibility until a tested replacement exists. No AdministratorAccess. Not fully least privilege while ReadOnlyAccess remains.
+Plan **and** apply/deploy roles retain AWS managed `ReadOnlyAccess` for refresh compatibility until a tested replacement exists. No AdministratorAccess. Not fully least privilege while ReadOnlyAccess remains.
 
 ## Locking
 

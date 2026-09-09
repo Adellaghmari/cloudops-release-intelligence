@@ -50,7 +50,9 @@ No LLMs. No vector databases. "Intelligence" here means deterministic operationa
 
 ## Current status
 
-**Phase 10 — Timeline + Replay (local).** Phases 0–10 are complete locally. There is no production AWS, no EventBridge/SQS execution, and no Terraform apply. Do not begin Phase 11 until requested.
+**PROJECT B COMPLETE.** Public AWS demo is live. Remote Terraform state, GitHub OIDC plan, and a controlled no-op GitHub Terraform apply are LIVE VERIFIED. Production apply remains gated off (`ENABLE_TERRAFORM_APPLY=false`) until a future maintenance window.
+
+Public demo: [https://d34fwrlm14h6js.cloudfront.net](https://d34fwrlm14h6js.cloudfront.net)
 
 See:
 
@@ -58,6 +60,9 @@ See:
 - [CV_CLAIMS_MATRIX.md](CV_CLAIMS_MATRIX.md)
 - [docs/PRODUCT.md](docs/PRODUCT.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/TERRAFORM_STATE.md](docs/TERRAFORM_STATE.md)
+- [docs/SECURITY.md](docs/SECURITY.md)
+- [docs/COST.md](docs/COST.md)
 
 ## Architecture in one paragraph
 
@@ -78,6 +83,7 @@ A public Angular console is served from S3 behind CloudFront. The Go API runs as
 | [docs/DYNAMODB_DESIGN.md](docs/DYNAMODB_DESIGN.md) | Access patterns and table design |
 | [docs/CI_CD.md](docs/CI_CD.md) | GitHub Actions and OIDC |
 | [docs/SECURITY.md](docs/SECURITY.md) | IAM, validation, secrets, scanning |
+| [docs/TERRAFORM_STATE.md](docs/TERRAFORM_STATE.md) | Remote S3 state + lockfile + apply gates |
 | [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | CloudWatch and X-Ray |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Environments and promotion |
 | [docs/DEMO.md](docs/DEMO.md) | Public recruiter scenarios |
@@ -128,8 +134,15 @@ Local seed includes Northstar Commerce rows with `source=synthetic` and this pro
 
 ## Cost posture
 
-Target idle cost is a few dollars per month. Serverless on-demand services only. AWS Budgets will alarm before anything expensive can run away. See [docs/COST.md](docs/COST.md).
+Target idle cost is a few dollars per month. Serverless on-demand services only (CloudFront, S3, Lambda, API Gateway, DynamoDB, CloudWatch/X-Ray, ECR, remote-state S3). AWS Budgets (`cloudops-prod-monthly`) alarm before spend can run away. No NAT Gateway, EC2, EKS, RDS, Elastic IP, or VPC endpoints. See [docs/COST.md](docs/COST.md).
+
+## Known limitations
+
+- Default CloudFront hostname uses AWS’s default certificate behavior (do not claim TLSv1.2_2021 without a custom domain + ACM).
+- GitHub plan/apply roles keep AWS managed ReadOnlyAccess for Terraform refresh — not fully least privilege.
+- Public recruiter demo is intentionally unauthenticated and bounded.
+- API Gateway HTTP API does not provide the standalone REST-API X-Ray segment; Lambda X-Ray remains LIVE VERIFIED.
 
 ## License
 
-Portfolio project. License will be set when the public GitHub repository is created.
+Portfolio project (not professional employment experience).
