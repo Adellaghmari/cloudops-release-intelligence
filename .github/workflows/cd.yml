@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force_lambda:
+        description: Build and push Lambda image
+        type: boolean
+        default: false
+      force_frontend:
+        description: Deploy Angular SPA to S3/CloudFront
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -38,6 +47,7 @@ jobs:
               - 'policies/**'
             frontend:
               - 'frontend/**'
+              - '.github/workflows/cd.yml'
 
   publish-evidence:
     name: record-pipeline-evidence
@@ -69,7 +79,8 @@ jobs:
     needs: [publish-evidence, changes]
     if: >
       vars.AWS_DEPLOY_ROLE_ARN != '' &&
-      (needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.backend == 'true' ||
+       (github.event_name == 'workflow_dispatch' && inputs.force_lambda))
     permissions:
       contents: read
       id-token: write
@@ -225,7 +236,8 @@ jobs:
     needs: [publish-evidence, changes]
     if: >
       vars.AWS_DEPLOY_ROLE_ARN != '' &&
-      (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.changes.outputs.frontend == 'true' ||
+       (github.event_name == 'workflow_dispatch' && inputs.force_frontend))
     permissions:
       contents: read
       id-token: write
