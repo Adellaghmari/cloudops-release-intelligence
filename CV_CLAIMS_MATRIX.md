@@ -41,7 +41,7 @@ This remains a portfolio project. It is not professional work experience.
 | Amazon CloudWatch | LIVE VERIFIED | Intended log groups and DLQ alarm exist | App logs + DLQ alarm (prior). |
 | AWS X-Ray | LIVE VERIFIED | Traces for API and worker | Prior successful API/worker traces. |
 | AWS IAM least privilege | IMPLEMENTED | Applied roles with scoped policies | Workload path sufficient; deploy role still has broad `Resource:"*"`. |
-| GitHub OIDC to AWS | LIVE VERIFIED | Workflows assume role without static keys | CD OIDC proven for Lambda; frontend OIDC job added (first SPA upload was manual admin). |
+| GitHub OIDC to AWS | LIVE VERIFIED | Workflows assume role without static keys | CD OIDC proven for Lambda and frontend deploy (`cloudops-prod-github-deploy`). |
 | AWS Secrets Manager | PLANNED / MAY OMIT | Only if a real secret is required | Intentionally avoided unless necessary |
 
 ## Infrastructure, CI, DevSecOps
@@ -51,7 +51,7 @@ This remains a portfolio project. It is not professional work experience.
 | Terraform | LIVE VERIFIED | `plan`/`apply` of the intended stack | Stack applied; TLS apply attempted; residual CF default-cert TLS reporting drift. Local state; GitHub apply DISABLED. |
 | GitHub Actions CI | LIVE VERIFIED | Successful workflow runs on the repo | [ci 34379595516](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34379595516). |
 | GitHub Actions CD | LIVE VERIFIED | OIDC + immutable ECR push from main | [cd 34379595587](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34379595587); path filters now skip Lambda on frontend/docs-only. |
-| Frontend CD (S3+CF) | IMPLEMENTED | OIDC sync + invalidation from Actions | Job in `cd.yml`; first production upload was manual `adel-admin` (documented). |
+| Frontend CD (S3+CF) | LIVE VERIFIED | OIDC sync + CreateInvalidation from Actions | [cd 34384226392](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34384226392): build/OIDC/S3/CreateInvalidation; waiter blocked on missing `GetInvalidation` (deferred TF). First upload was manual admin. |
 | Trivy scanning | LIVE VERIFIED | Workflow step that can fail the build | CRITICAL gate on `ef3778d5…`. |
 | Syft SBOM | LIVE VERIFIED | Generated artifact attached to release/build | CD SBOM for Lambda image. |
 | Cosign keyless signing | LIVE VERIFIED | Signed ECR image verified in CI | tlog `2771504438`. |

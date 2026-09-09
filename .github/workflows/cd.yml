@@ -292,15 +292,15 @@ jobs:
       - name: Invalidate CloudFront
         run: |
           set -euo pipefail
+          # CreateInvalidation is permitted; GetInvalidation is not yet on the deploy role
+          # (waiter would need cloudfront:GetInvalidation via a reviewed Terraform IAM change).
           ID="$(aws cloudfront create-invalidation \
             --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
             --paths "/*" \
             --query 'Invalidation.Id' \
             --output text)"
           echo "invalidation_id=$ID"
-          aws cloudfront wait invalidation-completed \
-            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
-            --id "$ID"
+          echo "Invalidation created; not waiting (deploy role lacks GetInvalidation)."
       - name: Post frontend deploy live evidence
         env:
           API_URL: ${{ vars.PUBLIC_API_URL }}

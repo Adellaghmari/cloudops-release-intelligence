@@ -16,7 +16,9 @@
 - Browser proof: Operations overview, release detail (risk/health/impact/policy/rollback/timeline), System Status LIVE PROJECT DATA
 - CORS from CloudFront origin allowed; `evil.example` gets no `Access-Control-Allow-Origin`
 - LIVE vs SYNTHETIC labeling in UI; dogfood row `evt_gha_phase15a1b2c3d4` shows git SHA `9710098e…`, CD run `34379595587`, digest `sha256:ef3778d5…`
-- First SPA upload: manual `adel-admin` `aws s3 sync` + invalidation. GitHub OIDC frontend deploy job added in `cd.yml` (path-filtered) for subsequent `frontend/**` pushes — not yet exercised on GitHub for this first upload
+- First SPA upload: manual `adel-admin` `aws s3 sync` + invalidation `IOLP72QIXMZIGX0SAGC7SUH68`
+- GitHub OIDC frontend deploy: [cd 34384226392](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34384226392) — OIDC assume + production build + S3 sync + CreateInvalidation `IB6HBFZKYWD0KL9A5U4ANPY9TM`; Lambda skipped; digests unchanged `ef3778d5…`; job failed only on `wait invalidation-completed` (`GetInvalidation` missing). Workflow updated to create-only; IAM expansion deferred to Phase 16 Terraform review
+- CD path filters skip Lambda on frontend/docs/workflow-only pushes; `workflow_dispatch` Lambda rebuild requires explicit `force_lambda` input
 
 ### Backend (unchanged digest)
 - Lambdas remain `sha256:ef3778d5af9e80d155610d5ffb0a889e509a4ba3da3fee2ac6878c6c5287ade5` (Git `9710098e…`) — not rebuilt for frontend/docs
@@ -32,12 +34,12 @@
 
 ## NOT LIVE VERIFIED / Phase 16 hardening
 
+- Add `cloudfront:GetInvalidation` to deploy role (Terraform IAM review) so CD can wait on invalidations
 - Custom domain + ACM so CloudFront can enforce/report TLSv1.2_2021 (default cert reports TLSv1)
 - Full in-session wait for newest poison message through all 3 receives into DLQ (~18 min)
 - API Gateway / DynamoDB as distinct X-Ray subsegments
 - GitHub Terraform apply (local state only — remains DISABLED)
 - Remote Terraform backend
-- First GitHub OIDC frontend deploy run (workflow present; first upload was manual admin)
 - Project C
 
 ## Cost posture
