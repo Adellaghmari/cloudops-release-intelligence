@@ -40,18 +40,21 @@ This remains a portfolio project. It is not professional work experience.
 | Amazon ECR | LIVE VERIFIED | Immutable image exists in the repository | `sha256:ef3778d5…`. |
 | Amazon CloudWatch | LIVE VERIFIED | Intended log groups and DLQ alarm exist | App logs + DLQ alarm (prior). |
 | AWS X-Ray | LIVE VERIFIED | Traces for API and worker | Prior successful API/worker traces. |
-| AWS IAM least privilege | IMPLEMENTED | Applied roles with scoped policies | 16A plan scopes GitHub deploy (ECR/Lambda/S3/CF) + `GetInvalidation`. Not applied yet. |
-| GitHub OIDC to AWS | LIVE VERIFIED | Workflows assume role without static keys | CD OIDC proven for Lambda and frontend deploy (`cloudops-prod-github-deploy`). |
+| AWS IAM least privilege | LIVE VERIFIED (bounded) | Applied roles with scoped policies | Deploy role scoped (ECR repo, Lambdas, web bucket, CF dist) + `GetInvalidation`; state IAM prefix-restricted. Plan role still has AWS **ReadOnlyAccess** — not fully least privilege. No AdministratorAccess. |
+| GitHub OIDC to AWS | LIVE VERIFIED | Workflows assume role without static keys | CD deploy + Terraform plan roles proven (`cloudops-prod-github-deploy`, `cloudops-prod-github-plan`). |
 | AWS Secrets Manager | PLANNED / MAY OMIT | Only if a real secret is required | Intentionally avoided unless necessary |
 
 ## Infrastructure, CI, DevSecOps
 
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
-| Terraform | LIVE VERIFIED | `plan`/`apply` of the intended stack | Product stack live. 16A hardening plan `0/1/0` + bootstrap plan `9/0/0` saved, not applied. Local state; GitHub apply DISABLED. |
+| Terraform | LIVE VERIFIED | `plan`/`apply` of the intended stack | Product stack live on remote S3 state (`cloudops-prod-tfstate-7d9fdd77`, `use_lockfile=true`). Local hardening apply 16B Part 2. GitHub **plan** LIVE; GitHub **apply** DISABLED. |
+| Terraform remote state + S3 lockfile | LIVE VERIFIED | S3 backend + native lock | Migrated Part 1; lock contention proven; Part 2 GitHub plan refreshed remote state; idle `.tflock` absent. |
+| GitHub Terraform PLAN (OIDC) | LIVE VERIFIED | Plan role + remote state from Actions | [terraform 34389687373](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34389687373) → `cloudops-prod-github-plan`, **No changes**. |
+| GitHub Terraform APPLY | IMPLEMENTED (gated off) | Apply from Actions | `ENABLE_TERRAFORM_APPLY=false`; apply job still hard-gated. Not LIVE VERIFIED. |
 | GitHub Actions CI | LIVE VERIFIED | Successful workflow runs on the repo | [ci 34379595516](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34379595516). |
 | GitHub Actions CD | LIVE VERIFIED | OIDC + immutable ECR push from main | [cd 34379595587](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34379595587); path filters now skip Lambda on frontend/docs-only. |
-| Frontend CD (S3+CF) | LIVE VERIFIED | OIDC sync + CreateInvalidation from Actions | [cd 34384490644](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34384490644) success (Lambda skipped). Waiter/`GetInvalidation` deferred to Phase 16 TF. First upload was manual admin. |
+| Frontend CD (S3+CF) | LIVE VERIFIED | OIDC sync + CreateInvalidation + waiter | [cd 34389391377](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34389391377): deploy OIDC + invalidation `IEJAC1M2X6OEE1YRXIV7RKLC8` **Completed** via `GetInvalidation`. |
 | Trivy scanning | LIVE VERIFIED | Workflow step that can fail the build | CRITICAL gate on `ef3778d5…`. |
 | Syft SBOM | LIVE VERIFIED | Generated artifact attached to release/build | CD SBOM for Lambda image. |
 | Cosign keyless signing | LIVE VERIFIED | Signed ECR image verified in CI | tlog `2771504438`. |
@@ -98,7 +101,8 @@ Do not list these on a CV for this project:
 - Professional production on-call experience
 - NAT Gateway, RDS, or always-on clusters
 - CloudFront default-cert TLS floor reporting as TLSv1.2_2021 (AWS reports TLSv1; Terraform now aligned)
-- GitHub Terraform apply / remote state (prepared in 16A; not live)
+- GitHub Terraform **apply** (plan is LIVE VERIFIED; apply remains disabled)
+- Fully least-privilege GitHub plan IAM while `ReadOnlyAccess` remains attached
 
 ## Update rule
 

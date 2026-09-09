@@ -1,6 +1,6 @@
 # Terraform state
 
-## Current strategy (Phase 16B Part 1 — LIVE)
+## Current strategy (Phase 16B Part 2 — LIVE)
 
 Main stack state is on **S3**:
 
@@ -12,7 +12,8 @@ Main stack state is on **S3**:
 
 Bootstrap stack state remains **local** under `infra/bootstrap/terraform.tfstate` (intentional; backed up in gitignored `infra/state-backups/`).
 
-GitHub Terraform **apply remains DISABLED**.
+GitHub Terraform **plan** is LIVE VERIFIED (`TERRAFORM_REMOTE_STATE_READY=true`).  
+GitHub Terraform **apply remains DISABLED** (`ENABLE_TERRAFORM_APPLY=false`).
 
 Pre-migration main backup (gitignored):
 
@@ -44,23 +45,23 @@ terraform {
 
 No credentials in backend config. No DynamoDB lock table.
 
-## GitHub state IAM (main — planned in Part 2 apply)
+## GitHub state IAM (main — applied in Part 2)
 
-Gitignored vars after bootstrap:
+Gitignored vars / CI `TF_VAR_*` after bootstrap:
 
 - `terraform_state_bucket_arn`
 - `terraform_state_bucket_name`
 - `terraform_state_key` (default matches backend key)
 
-**Plan + apply roles** (exact objects):
+**Plan + apply roles** (exact objects, verified in AWS):
 
 - `s3:ListBucket` with prefix condition
 - state object: `s3:GetObject` + `s3:PutObject` (**no** `DeleteObject`)
 - lock object `<key>.tflock`: Get/Put/Delete
 
-Fresh remote plan: `tfplan-hardening-16b-remote-1` (**do not apply pre-migration plans**).
+Applied via `tfplan-hardening-16b-remote-1` (**2/2/0**).
 
-Plan role also retains AWS managed `ReadOnlyAccess` for refresh compatibility until a tested replacement exists. No AdministratorAccess.
+Plan role also retains AWS managed `ReadOnlyAccess` for refresh compatibility until a tested replacement exists. No AdministratorAccess. Not fully least privilege while ReadOnlyAccess remains.
 
 ## Locking
 
