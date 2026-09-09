@@ -100,4 +100,4 @@ Estimated recurring idle cost stays inside the original low single-digit USD tar
 
 **Do not run GitHub Actions terraform apply** while state is local (`infra/terraform.tfstate`, gitignored). That would risk a second stack.
 
-**Second bootstrap (not started):** push an immutable ECR image digest, then apply with `api_image_uri` set. That creates Lambda + HTTP API. Do not start that until explicitly approved.
+**Second bootstrap (not started):** saved local plan `infra/tfplan-compute` (gitignored) is `8 add, 5 change, 0 destroy` for Lambda API + worker + HTTP API + SQS mapping, using ECR digest `sha256:08ab57825cc1f43a1527ad474f20a146e8f55dacb2c49323f42601129efa1a53`. Do not apply until explicitly approved. Do not enable GitHub apply while state is local.

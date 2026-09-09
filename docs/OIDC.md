@@ -10,10 +10,14 @@ Normal deployment must not use long-lived `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCE
 
 ## Roles
 
+GitHub now embeds numeric owner/repo IDs in the `sub` claim (observed 2026-09-09):
+
+`repo:Adellaghmari@179922674/cloudops-release-intelligence@1361976389:ref:refs/heads/main`
+
 | Role | Trust | Use |
 | --- | --- | --- |
-| `cloudops-prod-github-deploy` | `sub` = this repo `ref:refs/heads/main` (and `environment:prod`) | Push ECR, update Lambda, sync S3, apply image URI |
-| `cloudops-prod-github-plan` | `sub` = this repo `*` | Read-only plan from pull requests |
+| `cloudops-prod-github-deploy` | that `sub` for `main`, and `:environment:prod` | Push ECR, update Lambda, sync S3 |
+| `cloudops-prod-github-plan` | `sub` = the ID-qualified repo `*` | Read-only plan from pull requests |
 
 ## Why this is safer than stored access keys
 
@@ -21,9 +25,6 @@ A static access key is a long-lived secret. Anyone who copies it can call AWS un
 
 ## Live verification
 
-OIDC is **IMPLEMENTED** in Terraform and the `cd` workflow. It becomes **LIVE VERIFIED** only after:
+OIDC is **LIVE VERIFIED**. CD run https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34370805611 called `aws sts get-caller-identity` and received `arn:aws:sts::912415493331:assumed-role/cloudops-prod-github-deploy/GitHubActions`.
 
-1. The IAM role exists in the account
-2. A GitHub Actions run on this repository successfully calls `aws sts get-caller-identity` using `configure-aws-credentials` with `role-to-assume`
-
-Until that run exists, do not claim OIDC on a CV.
+GitHub `terraform apply` remains disabled while state is local (`ENABLE_TERRAFORM_APPLY` is unset).

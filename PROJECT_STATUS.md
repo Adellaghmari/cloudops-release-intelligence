@@ -1,8 +1,8 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence
-**Phase:** 11–15 (first AWS bootstrap applied; compute and public demo not created)
-**Status:** NOT COMPLETE — AWS foundation inspected; product runtime not live
+**Phase:** 11–15 (first AWS bootstrap live; Linux image in ECR; second compute plan saved, not applied)
+**Status:** NOT COMPLETE — foundation and CI/OIDC/ECR proven; product runtime not live
 **Complete:** No
 
 This file is the source of truth for what exists versus what is planned. It must not mark the project COMPLETE until the public product, AWS infrastructure, CI/CD, observability, and live verification criteria in the master build prompt are actually proven.
@@ -26,12 +26,15 @@ LIVE VERIFIED (first Terraform bootstrap, 2026-09-09, account `912415493331`, re
 - S3 web bucket `cloudops-prod-web-7be25877` and raw bucket `cloudops-prod-raw-7be25877`: public access blocked, AES256 encryption, raw 90-day lifecycle
 - CloudFront distribution `E2220NQVG6GU75` (`d34fwrlm14h6js.cloudfront.net`) with OAC to the web bucket (origin is empty; Angular is not uploaded; this is not a public recruiter demo)
 - DynamoDB table `cloudops-prod-main` exists (`PAY_PER_REQUEST`, GSI1, GSI2, ACTIVE). No application items have been written.
-- ECR repository `cloudops-prod-api` exists (`IMMUTABLE` tags, scan on push). No image has been pushed.
+- ECR repository `cloudops-prod-api` exists (`IMMUTABLE` tags, scan on push). Production image pushed: tag `sha-c22171c3b6b8bd3946a2972f16283eac629f5ce3`, digest `sha256:08ab57825cc1f43a1527ad474f20a146e8f55dacb2c49323f42601129efa1a53` (linux/amd64). Not deployed to Lambda.
 - EventBridge custom bus `cloudops-prod-release-events`, rule `cloudops-prod-analysis`, target = analysis SQS queue. No real events have been processed.
 - SQS `cloudops-prod-analysis` + DLQ `cloudops-prod-analysis-dlq` with `maxReceiveCount=3`. No worker consumes the queue.
 - CloudWatch log groups `/aws/lambda/cloudops-prod-api`, `/aws/lambda/cloudops-prod-worker`, `/aws/apigateway/cloudops-prod-http` with 14-day retention, plus DLQ alarm `cloudops-prod-analysis-dlq`. No application logs yet.
 - AWS Budget `cloudops-prod-monthly` ($10 MONTHLY limit; $5 and $10 ACTUAL notifications). Subscriber email is not committed.
-- GitHub OIDC provider `token.actions.githubusercontent.com` plus IAM roles `cloudops-prod-github-deploy` and `cloudops-prod-github-plan` (trust scoped to `Adellaghmari/cloudops-release-intelligence`). Actions have not assumed these roles.
+- GitHub OIDC: Actions assumed `cloudops-prod-github-deploy`. Proof: `aws sts get-caller-identity` returned `arn:aws:sts::912415493331:assumed-role/cloudops-prod-github-deploy/GitHubActions` in [cd run 34370805611](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34370805611). Trust uses GitHub owner/repo numeric IDs in `sub`.
+- GitHub Actions CI green on Ubuntu 24.04: [ci run 34370805926](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34370805926) (go-quality, angular-quality, terraform-validate, trivy-and-sbom, cypress-local, linux-container).
+- Linux HTTP image inspected in CI: `os=linux arch=amd64 user=65532:65532`; SIGTERM accepted. Lambda image `user=1000:1000`.
+- Trivy: filesystem/config gates passed on that CI run (documented IaC exceptions AWS-0011 / AWS-0132). Image CRITICAL gate passed. Syft SPDX SBOM uploaded from CI and CD.
 - Lambda IAM roles `cloudops-prod-api` and `cloudops-prod-worker` exist. No Lambda functions exist.
 
 NOT LIVE VERIFIED:
@@ -40,11 +43,12 @@ NOT LIVE VERIFIED:
 - API Gateway / public API
 - Public Angular recruiter demo (CloudFront origin is empty)
 - Real EventBridge → SQS → worker processing
-- Linux runtime on AWS
+- Linux runtime on AWS Lambda
 - X-Ray traces
-- GitHub Actions deployment via OIDC
+- Cosign keyless verify (sign attempted; verify denied without `ecr:GetDownloadUrlForLayer`)
 - DynamoDB items written by the application
 - GitHub Actions `terraform apply` (must stay disabled while state is local)
+- In-product LIVE PROJECT DATA rows (metadata exists in workflow artifacts; API cannot ingest yet)
 
 ## Implemented in this batch
 
@@ -77,7 +81,7 @@ NOT LIVE VERIFIED:
 | --- | --- |
 | Local | IMPLEMENTED (in-memory) |
 | Staging | NOT USED (portfolio is local → prod) |
-| Production | FIRST BOOTSTRAP ONLY (no Lambda / API Gateway) |
+| Production | FOUNDATION + ECR IMAGE (no Lambda / API Gateway) |
 | Public frontend | NOT STARTED (CloudFront exists; SPA not uploaded) |
 | Public API | NOT STARTED |
 
@@ -88,18 +92,18 @@ NOT LIVE VERIFIED:
 - EventBridge/SQS resources exist. Delivery, worker consume, and DLQ poison-path behaviour are not AWS verified.
 - CloudFront serves the SPA origin only. The public API URL will be API Gateway (avoids a Terraform cycle with Lambda CORS). SPA objects are not uploaded.
 - Terraform state is **local** (`infra/terraform.tfstate`, gitignored). Do not enable GitHub terraform apply until a remote backend exists.
-- Cosign keyless signing is wired in CD after an image exists. Not proven until that job runs.
-- Linux container behaviour is proven in GitHub Ubuntu CI, not on this laptop. No image is in ECR.
+- Cosign keyless signing ran in CD; verify failed because the deploy role lacked `ecr:GetDownloadUrlForLayer`. That permission is in the saved second plan. Cosign is not LIVE VERIFIED.
+- Linux container behaviour is proven on GitHub Ubuntu 24.04. The Lambda image is in ECR. This workstation still has no Docker.
 - GitHub deploy IAM policy still uses `Resource: "*"` for several runtime APIs. That is documented debt, not least-privilege LIVE VERIFIED.
 
 ## Remaining work before a complete live product
 
-1. Build and push the Linux Lambda image to ECR by digest (not started)
-2. Second Terraform apply with `api_image_uri=<ecr>@sha256:…` to create Lambda + HTTP API (not started)
-3. Upload the Angular production build to the web bucket / CloudFront
-4. Public Cypress + six Northstar scenarios through the deployed API
-5. Real EventBridge/SQS/DLQ/X-Ray/OIDC assume-role evidence
-6. Remote Terraform state before any GitHub apply
+1. Review and apply the saved second plan `infra/tfplan-compute` (`8 add, 5 change, 0 destroy`) using digest `sha256:08ab57825cc1f43a1527ad474f20a146e8f55dacb2c49323f42601129efa1a53` (not started)
+2. Upload the Angular production build to the web bucket / CloudFront
+3. Public Cypress + six Northstar scenarios through the deployed API
+4. Real EventBridge → SQS → worker + X-Ray evidence
+5. Remote Terraform state before any GitHub apply
+6. Cosign verify after `ecr:GetDownloadUrlForLayer` is applied
 
 Phase 16 is not started.
 
@@ -118,9 +122,9 @@ Phase 16 is not started.
 | 8 | OPA / Release Policy Gate | COMPLETE (local) |
 | 9 | Rollback Readiness | COMPLETE (local) |
 | 10 | Release Timeline + Release Replay | COMPLETE (local) |
-| 11 | Real GitHub + self dogfooding | IMPLEMENTED in repo; LIVE VERIFIED pending green Actions + live evidence rows |
-| 12 | AWS infrastructure with Terraform | FIRST BOOTSTRAP LIVE VERIFIED; Lambda/API Gateway not created |
-| 13 | CI/CD + OIDC + DevSecOps | IMPLEMENTED in repo; OIDC roles exist; Actions have not assumed them |
+| 11 | Real GitHub + self dogfooding | CI LIVE VERIFIED; live evidence rows not ingested (no public API yet) |
+| 12 | AWS infrastructure with Terraform | FIRST BOOTSTRAP LIVE VERIFIED; second compute plan saved, not applied |
+| 13 | CI/CD + OIDC + DevSecOps | CI + OIDC assume-role + ECR push LIVE VERIFIED; GitHub terraform apply disabled |
 | 14 | CloudWatch / X-Ray | Log groups + DLQ alarm LIVE VERIFIED; no app logs or X-Ray traces |
 | 15 | Public synthetic recruiter demo | IMPLEMENTED locally; not publicly deployed |
 | 16 | Security / reliability / performance hardening | NOT STARTED |

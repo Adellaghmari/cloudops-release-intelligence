@@ -77,6 +77,7 @@ data "aws_iam_policy_document" "github_deploy" {
     sid = "ECR"
     actions = [
       "ecr:GetAuthorizationToken",
+      "ecr:GetDownloadUrlForLayer",
       "ecr:BatchCheckLayerAvailability",
       "ecr:CompleteLayerUpload",
       "ecr:UploadLayerPart",

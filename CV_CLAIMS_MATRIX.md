@@ -37,11 +37,11 @@ This remains a portfolio project. It is not professional work experience.
 | Amazon CloudFront | LIVE VERIFIED | Distribution + OAC in the account | Distribution `E2220NQVG6GU75` (`d34fwrlm14h6js.cloudfront.net`) enabled; origin `s3-web` uses OAC `E3TW0G8ABTQWD8`. Angular not uploaded. Not a public recruiter demo. |
 | Amazon EventBridge | IMPLEMENTED | Custom bus receiving real events | Bus `cloudops-prod-release-events`, enabled rule `cloudops-prod-analysis`, target = `cloudops-prod-analysis` SQS. No real events received. Not LIVE VERIFIED for processing. |
 | Amazon SQS | IMPLEMENTED | Worker consuming analysis queue + DLQ | Queues exist; redrive `maxReceiveCount=3` to `cloudops-prod-analysis-dlq`. No worker mapping. Not LIVE VERIFIED for consume. |
-| Amazon ECR | IMPLEMENTED | Immutable image digest deployed to Lambda | Repo `cloudops-prod-api`: `IMMUTABLE` + scan on push. No image pushed. Not LIVE VERIFIED. |
+| Amazon ECR | LIVE VERIFIED | Immutable image exists in the repository | Repo `cloudops-prod-api`: `IMMUTABLE` + scan on push. Image tag `sha-c22171c3b6b8bd3946a2972f16283eac629f5ce3`, digest `sha256:08ab57825cc1f43a1527ad474f20a146e8f55dacb2c49323f42601129efa1a53`, linux/amd64. Not deployed to Lambda. |
 | Amazon CloudWatch | LIVE VERIFIED | Intended log groups and DLQ alarm exist | Groups `/aws/lambda/cloudops-prod-api`, `/aws/lambda/cloudops-prod-worker`, `/aws/apigateway/cloudops-prod-http` retention 14 days; alarm `cloudops-prod-analysis-dlq` on `ApproximateNumberOfMessagesVisible >= 1`. No application logs yet. |
 | AWS X-Ray | IMPLEMENTED | Traces for API and worker | Lambda `tracing_config = Active` in Terraform. Functions do not exist. No real trace. |
 | AWS IAM least privilege | IMPLEMENTED | Applied roles with scoped policies | Roles applied: `cloudops-prod-api`, `cloudops-prod-worker`, `cloudops-prod-github-deploy`, `cloudops-prod-github-plan`. GitHub deploy policy still uses `Resource: "*"` for several APIs. Not LIVE VERIFIED as least privilege. |
-| GitHub OIDC to AWS | IMPLEMENTED | Workflows assume role without static keys | Provider `token.actions.githubusercontent.com` exists. Deploy trust: `aud=sts.amazonaws.com`; `sub` `repo:Adellaghmari/cloudops-release-intelligence:ref:refs/heads/main` and `:environment:prod`. Plan trust: `repo:Adellaghmari/cloudops-release-intelligence:*`. Not LIVE VERIFIED until Actions `sts get-caller-identity` succeeds. |
+| GitHub OIDC to AWS | LIVE VERIFIED | Workflows assume role without static keys | CD run [34370805611](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34370805611): `sts get-caller-identity` = `arn:aws:sts::912415493331:assumed-role/cloudops-prod-github-deploy/GitHubActions`. No `AWS_ACCESS_KEY_ID`. Trust `sub` includes GitHub owner/repo IDs. |
 | AWS Secrets Manager | PLANNED / MAY OMIT | Only if a real secret is required | Intentionally avoided unless necessary |
 
 ## Infrastructure, CI, DevSecOps
@@ -49,13 +49,13 @@ This remains a portfolio project. It is not professional work experience.
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
 | Terraform | LIVE VERIFIED | `plan`/`apply` of the intended stack | First bootstrap apply 2026-09-09: `34 added, 0 changed, 0 destroyed` in `eu-west-1`. Local gitignored state; 34 managed resources. GitHub apply must stay disabled until remote state exists. |
-| GitHub Actions CI | IMPLEMENTED | Successful workflow runs on the repo | `.github/workflows/ci.yml` on Ubuntu. No green run until the GitHub remote exists. |
-| GitHub Actions CD | IMPLEMENTED | Staging/prod deploy from main | `cd.yml` OIDC + digest push. Gated on `AWS_DEPLOY_ROLE_ARN`. |
-| Trivy scanning | IMPLEMENTED | Workflow step that can fail the build | fs + config + image in CI. No recorded result yet. |
-| Syft SBOM | IMPLEMENTED | Generated artifact attached to release/build | `anchore/sbom-action` in CI. Not generated locally. |
-| Cosign keyless signing | IMPLEMENTED | Signed ECR image verified in CI | `cosign sign` in CD after push. Not verified. |
-| Linux | IMPLEMENTED | Real Ubuntu CI + Linux OCI/Lambda runtime | Dockerfile, scripts, Actions `ubuntu-latest`. Not LIVE VERIFIED until Lambda serves traffic. Workstation has no Docker. |
-| Docker / OCI containers | IMPLEMENTED | Multi-stage image, non-root, digest identity | Dockerfile + CI inspect. Not pushed to ECR. |
+| GitHub Actions CI | LIVE VERIFIED | Successful workflow runs on the repo | [ci run 34370805926](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34370805926) on `ubuntu-24.04`: go-quality, angular-quality, terraform-validate, trivy-and-sbom, cypress-local, linux-container all success. |
+| GitHub Actions CD | LIVE VERIFIED | OIDC + immutable ECR push from main | [cd run 34370805611](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34370805611) assumed deploy role, pushed `sha-c22171c…`. GitHub `terraform apply` remains disabled (local state). |
+| Trivy scanning | LIVE VERIFIED | Workflow step that can fail the build | CI fs + Terraform config + HTTP/Lambda image CRITICAL gate on run 34370805926. Documented IaC ignore: AWS-0011 (no WAF), AWS-0132 (SSE-S3 not CMK). |
+| Syft SBOM | LIVE VERIFIED | Generated artifact attached to release/build | `anchore/sbom-action` uploaded `cloudops-sbom.spdx.json` (CI) and `cloudops-lambda-sbom.spdx.json` (CD). |
+| Cosign keyless signing | IMPLEMENTED | Signed ECR image verified in CI | `cosign sign` ran; `cosign verify` failed (`ecr:GetDownloadUrlForLayer` denied). Not LIVE VERIFIED. |
+| Linux | LIVE VERIFIED | Real Ubuntu CI + Linux OCI image | Runner `Ubuntu 24.04.4 LTS x86_64`. HTTP image `os=linux arch=amd64 user=65532:65532` + SIGTERM. Lambda image `user=1000:1000`. Not LIVE VERIFIED as Lambda runtime. |
+| Docker / OCI containers | LIVE VERIFIED | Multi-stage image, non-root, digest identity | ECR `cloudops-prod-api@sha256:08ab57825cc1f43a1527ad474f20a146e8f55dacb2c49323f42601129efa1a53`. |
 | Open Policy Agent / Rego | TESTED | Policies execute against real release input | `policies/release_gate.rego` evaluated in-process via opa/v1/rego. Local only. |
 
 ## Product capabilities
@@ -73,7 +73,7 @@ This remains a portfolio project. It is not professional work experience.
 | Event-driven analysis | TESTED | Ingest → EventBridge → SQS → worker, not in-request theatre | Local processor still TESTED. AWS bus/rule/queue/DLQ exist; worker and event source mapping do not. Not LIVE VERIFIED. |
 | Idempotent ingestion | TESTED | Duplicate event_id does not double-apply | Processor + memory/DynamoDB conditional CreateEvent + HTTP 200 duplicate. Local only. |
 | Public recruiter demo | IMPLEMENTED | Unauthenticated synthetic scenarios through real logic | Local console + `POST /demo/reset`. Not publicly deployed. |
-| Self-dogfooding CI evidence | IMPLEMENTED | This repo's real SHA/run/deploy metadata visible in-product | `GET /status` + live evidence ingest. No live rows until a real pipeline event is posted. |
+| Self-dogfooding CI evidence | IMPLEMENTED | This repo's real SHA/run/deploy metadata visible in-product | Real metadata now exists: git SHA `c22171c3b6b8bd3946a2972f16283eac629f5ce3`, CI run `34370805926`, CD run `34370805611`, image digest `sha256:08ab57825cc1f43a1527ad474f20a146e8f55dacb2c49323f42601129efa1a53`. Not ingested because the public API does not exist. Keep LIVE PROJECT DATA separate from SYNTHETIC DEMO. |
 
 ## Testing and reliability
 
