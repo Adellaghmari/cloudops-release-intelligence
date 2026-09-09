@@ -42,6 +42,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [publish-evidence]
     if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
@@ -49,37 +52,112 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
       - name: Prove OIDC assumption
-        run: aws sts get-caller-identity
+        id: oidc
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity
+          ARN="$(aws sts get-caller-identity --query Arn --output text)"
+          echo "caller_arn=$ARN" >> "$GITHUB_OUTPUT"
+          echo "$ARN" | grep -q 'assumed-role/cloudops-prod-github-deploy/'
       - uses: docker/setup-buildx-action@v3
       - name: Login ECR
         uses: aws-actions/amazon-ecr-login@v2
-      - name: Build and push immutable image
+      - name: Build Lambda image
         env:
           ECR_URL: ${{ vars.ECR_REPOSITORY_URL }}
         run: |
           set -euo pipefail
           test -n "$ECR_URL"
           docker build --target lambda -t "$ECR_URL:sha-${GITHUB_SHA}" .
+          docker image inspect "$ECR_URL:sha-${GITHUB_SHA}" --format 'os={{.Os}} arch={{.Architecture}} user={{.Config.User}} cmd={{json .Config.Cmd}}'
+      - name: Trivy Lambda image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ vars.ECR_REPOSITORY_URL }}:sha-${{ github.sha }}
+          severity: CRITICAL,HIGH
+          format: table
+          output: trivy-lambda.txt
+          ignore-unfixed: true
+      - name: Fail on unfixed CRITICAL
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ vars.ECR_REPOSITORY_URL }}:sha-${{ github.sha }}
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: Syft SBOM for Lambda image
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ vars.ECR_REPOSITORY_URL }}:sha-${{ github.sha }}
+          format: spdx-json
+          artifact-name: cloudops-lambda-sbom.spdx.json
+      - name: Push immutable image and record digest
+        env:
+          ECR_URL: ${{ vars.ECR_REPOSITORY_URL }}
+        run: |
+          set -euo pipefail
           docker push "$ECR_URL:sha-${GITHUB_SHA}"
-          DIGEST="$(docker buildx imagetools inspect "$ECR_URL:sha-${GITHUB_SHA}" --format '{{json .Manifest.Digest}}' | tr -d '"')"
+          DIGEST="$(aws ecr describe-images \
+            --repository-name cloudops-prod-api \
+            --image-ids imageTag="sha-${GITHUB_SHA}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          test -n "$DIGEST"
+          test "$DIGEST" != "None"
           echo "IMAGE_URI=${ECR_URL}@${DIGEST}" >> "$GITHUB_ENV"
           echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=sha-${GITHUB_SHA}" >> "$GITHUB_ENV"
+          mkdir -p sbom
+          cat > sbom/ecr-image-evidence.json <<EOF
+          {
+            "source": "live",
+            "git_sha": "${GITHUB_SHA}",
+            "branch": "${GITHUB_REF_NAME}",
+            "workflow_run_id": "${GITHUB_RUN_ID}",
+            "workflow_name": "${GITHUB_WORKFLOW}",
+            "image_repository": "cloudops-prod-api",
+            "image_tag": "sha-${GITHUB_SHA}",
+            "image_digest": "${DIGEST}",
+            "image_uri": "${ECR_URL}@${DIGEST}",
+            "oidc_caller_arn": "${{ steps.oidc.outputs.caller_arn }}",
+            "recorded_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ecr-image-evidence
+          path: |
+            sbom/ecr-image-evidence.json
+            trivy-lambda.txt
       - uses: sigstore/cosign-installer@v3
       - name: Cosign keyless sign
+        id: cosign
+        continue-on-error: true
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
           set -euo pipefail
           cosign sign --yes "${IMAGE_URI}"
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.9.8"
+          cosign verify \
+            --certificate-identity-regexp 'https://github.com/Adellaghmari/cloudops-release-intelligence/.github/workflows/cd.yml@refs/heads/main' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${IMAGE_URI}"
+      - name: Record Cosign status
+        run: |
+          echo "cosign_outcome=${{ steps.cosign.outcome }}" >> "$GITHUB_ENV"
+          echo "cosign_outcome=${{ steps.cosign.outcome }}" >> sbom/ecr-image-evidence.json.tmp || true
       - name: Terraform apply image
+        if: vars.ENABLE_TERRAFORM_APPLY == 'true'
         working-directory: infra
         run: |
           set -euo pipefail
           terraform init
           terraform apply -auto-approve -var="api_image_uri=${IMAGE_URI}"
+      - name: Skip GitHub terraform apply while state is local
+        if: vars.ENABLE_TERRAFORM_APPLY != 'true'
+        run: echo "Terraform apply remains disabled. State is local. Image ${IMAGE_URI} is ready for a reviewed local plan."
       - name: Post live evidence
         env:
           API_URL: ${{ vars.PUBLIC_API_URL }}

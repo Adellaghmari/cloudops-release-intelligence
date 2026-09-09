@@ -51,23 +51,37 @@ type handler struct {
 	logger *slog.Logger
 }
 
-func (h *handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
+// Handle reports per-message failures so a poison record can reach the SQS DLQ
+// without blocking the rest of the batch. Returning error here would retry the
+// entire batch and can hide good messages behind one bad body.
+func (h *handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) (events.SQSEventResponse, error) {
+	var failures []events.SQSBatchItemFailure
+	now := time.Now().UTC()
 	for _, rec := range sqsEvent.Records {
 		env, err := eventbridge.UnwrapSQSBody(rec.Body)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "sqs_unwrap_failed")
-			return err
+			h.logger.ErrorContext(ctx, "sqs_unwrap_failed", slog.String("message_id", rec.MessageId))
+			failures = append(failures, events.SQSBatchItemFailure{ItemIdentifier: rec.MessageId})
+			continue
 		}
 		h.logger.InfoContext(ctx, "worker_event",
 			slog.String("event_id", env.EventID.String()),
 			slog.String("event_type", string(env.EventType)),
 			slog.String("correlation_id", env.CorrelationID),
 		)
-		if _, err := h.proc.Handle(ctx, env, time.Now().UTC()); err != nil {
-			return err
+		result, err := h.proc.Handle(ctx, env, now)
+		if err != nil || result.Dropped {
+			h.logger.ErrorContext(ctx, "sqs_handle_failed",
+				slog.String("message_id", rec.MessageId),
+				slog.String("event_id", env.EventID.String()),
+				slog.Bool("dropped", result.Dropped),
+				slog.String("reason", result.Reason),
+			)
+			failures = append(failures, events.SQSBatchItemFailure{ItemIdentifier: rec.MessageId})
+			continue
 		}
 	}
-	return nil
+	return events.SQSEventResponse{BatchItemFailures: failures}, nil
 }
 
 func openStore(ctx context.Context, cfg config.Config, logger *slog.Logger) (repository.Store, error) {
