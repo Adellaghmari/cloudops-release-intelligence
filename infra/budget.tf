@@ -6,7 +6,7 @@ resource "aws_budgets_budget" "monthly" {
   time_unit    = "MONTHLY"
 
   dynamic "notification" {
-    for_each = var.budget_notification_email == "" ? [] : [5, 10]
+    for_each = [5, 10]
     content {
       comparison_operator        = "GREATER_THAN"
       threshold                  = notification.value

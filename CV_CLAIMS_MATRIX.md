@@ -30,25 +30,25 @@ This remains a portfolio project. It is not professional work experience.
 
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
-| AWS Lambda | IMPLEMENTED | Terraform-applied functions serving traffic | `cmd/api` Lambda adapter + `cmd/worker` + Terraform image functions. Not applied. |
-| Amazon API Gateway | IMPLEMENTED | Public HTTPS API | HTTP API Terraform. Not applied. |
-| Amazon DynamoDB | TESTED | Production table with real items | Adapter + single-table mapping + conditional EventID writes + reset/evidence tests against a local DynamoDB-compatible fake. No production table. |
-| Amazon S3 | IMPLEMENTED | Frontend origin and/or raw event objects | Terraform web + raw buckets; Go raw-evidence writer. Not applied. |
-| Amazon CloudFront | IMPLEMENTED | Public site URL | Terraform distribution + OAC. Not applied. |
-| Amazon EventBridge | IMPLEMENTED | Custom bus receiving real events | Go PutEvents adapter + Terraform bus/rule. Not AWS verified. |
-| Amazon SQS | IMPLEMENTED | Worker consuming analysis queue + DLQ | Worker Lambda + Terraform queue/DLQ (`maxReceiveCount=3`). Not AWS verified. |
-| Amazon ECR | IMPLEMENTED | Immutable image digest deployed to Lambda | Terraform repo (`IMMUTABLE` tags). No pushed digest. |
-| Amazon CloudWatch | IMPLEMENTED | Production logs/metrics in the account | 14-day log groups + DLQ alarm in Terraform. No live logs. |
-| AWS X-Ray | IMPLEMENTED | Traces for API and worker | Lambda `tracing_config = Active`. No real trace yet. |
-| AWS IAM least privilege | IMPLEMENTED | Applied roles with scoped policies | Terraform IAM for Lambda + GitHub OIDC. Not applied. |
-| GitHub OIDC to AWS | IMPLEMENTED | Workflows assume role without static keys | Trust policies + `cd.yml`. Not LIVE VERIFIED until `sts get-caller-identity` succeeds in Actions. |
+| AWS Lambda | IMPLEMENTED | Terraform-applied functions serving traffic | `cmd/api` Lambda adapter + `cmd/worker` + IAM roles `cloudops-prod-api` / `cloudops-prod-worker`. `aws lambda list-functions` returns none. Not LIVE VERIFIED. |
+| Amazon API Gateway | IMPLEMENTED | Public HTTPS API | HTTP API Terraform + empty log group `/aws/apigateway/cloudops-prod-http`. `apigatewayv2 get-apis` returns none. Not LIVE VERIFIED. |
+| Amazon DynamoDB | TESTED | Production table with real items | Adapter TESTED against a local DynamoDB-compatible fake. Table `cloudops-prod-main` exists in `eu-west-1` (`PAY_PER_REQUEST`, GSI1, GSI2, ACTIVE). No application PutItem yet. Not LIVE VERIFIED for data. |
+| Amazon S3 | LIVE VERIFIED | Frontend origin and/or raw event objects | Buckets `cloudops-prod-web-7be25877` and `cloudops-prod-raw-7be25877`: BlockPublicAcls/IgnorePublicAcls/BlockPublicPolicy/RestrictPublicBuckets all true; AES256; raw lifecycle expire 90 days. SPA/raw objects not uploaded. |
+| Amazon CloudFront | LIVE VERIFIED | Distribution + OAC in the account | Distribution `E2220NQVG6GU75` (`d34fwrlm14h6js.cloudfront.net`) enabled; origin `s3-web` uses OAC `E3TW0G8ABTQWD8`. Angular not uploaded. Not a public recruiter demo. |
+| Amazon EventBridge | IMPLEMENTED | Custom bus receiving real events | Bus `cloudops-prod-release-events`, enabled rule `cloudops-prod-analysis`, target = `cloudops-prod-analysis` SQS. No real events received. Not LIVE VERIFIED for processing. |
+| Amazon SQS | IMPLEMENTED | Worker consuming analysis queue + DLQ | Queues exist; redrive `maxReceiveCount=3` to `cloudops-prod-analysis-dlq`. No worker mapping. Not LIVE VERIFIED for consume. |
+| Amazon ECR | IMPLEMENTED | Immutable image digest deployed to Lambda | Repo `cloudops-prod-api`: `IMMUTABLE` + scan on push. No image pushed. Not LIVE VERIFIED. |
+| Amazon CloudWatch | LIVE VERIFIED | Intended log groups and DLQ alarm exist | Groups `/aws/lambda/cloudops-prod-api`, `/aws/lambda/cloudops-prod-worker`, `/aws/apigateway/cloudops-prod-http` retention 14 days; alarm `cloudops-prod-analysis-dlq` on `ApproximateNumberOfMessagesVisible >= 1`. No application logs yet. |
+| AWS X-Ray | IMPLEMENTED | Traces for API and worker | Lambda `tracing_config = Active` in Terraform. Functions do not exist. No real trace. |
+| AWS IAM least privilege | IMPLEMENTED | Applied roles with scoped policies | Roles applied: `cloudops-prod-api`, `cloudops-prod-worker`, `cloudops-prod-github-deploy`, `cloudops-prod-github-plan`. GitHub deploy policy still uses `Resource: "*"` for several APIs. Not LIVE VERIFIED as least privilege. |
+| GitHub OIDC to AWS | IMPLEMENTED | Workflows assume role without static keys | Provider `token.actions.githubusercontent.com` exists. Deploy trust: `aud=sts.amazonaws.com`; `sub` `repo:Adellaghmari/cloudops-release-intelligence:ref:refs/heads/main` and `:environment:prod`. Plan trust: `repo:Adellaghmari/cloudops-release-intelligence:*`. Not LIVE VERIFIED until Actions `sts get-caller-identity` succeeds. |
 | AWS Secrets Manager | PLANNED / MAY OMIT | Only if a real secret is required | Intentionally avoided unless necessary |
 
 ## Infrastructure, CI, DevSecOps
 
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
-| Terraform | IMPLEMENTED | `plan`/`apply` of the intended stack | `infra/` written, fmt/validate in CI. Not applied. |
+| Terraform | LIVE VERIFIED | `plan`/`apply` of the intended stack | First bootstrap apply 2026-09-09: `34 added, 0 changed, 0 destroyed` in `eu-west-1`. Local gitignored state; 34 managed resources. GitHub apply must stay disabled until remote state exists. |
 | GitHub Actions CI | IMPLEMENTED | Successful workflow runs on the repo | `.github/workflows/ci.yml` on Ubuntu. No green run until the GitHub remote exists. |
 | GitHub Actions CD | IMPLEMENTED | Staging/prod deploy from main | `cd.yml` OIDC + digest push. Gated on `AWS_DEPLOY_ROLE_ARN`. |
 | Trivy scanning | IMPLEMENTED | Workflow step that can fail the build | fs + config + image in CI. No recorded result yet. |
@@ -70,7 +70,7 @@ This remains a portfolio project. It is not professional work experience.
 | Rollback Readiness | TESTED | READY/PARTIAL/NOT READY/UNKNOWN + missing prereqs | `internal/rollback` + GET /releases/:id/rollback. No auto rollback. Local only. |
 | Release Replay | TESTED | Deterministic diff of two persisted releases | GET /replay + Angular Replay page. Local only. |
 | Release evidence timeline | TESTED | Chronological events from storage | GET /releases/:id/timeline from persisted events. Local only. |
-| Event-driven analysis | TESTED | Ingest → EventBridge → SQS → worker, not in-request theatre | Local processor still TESTED. AWS path IMPLEMENTED (adapters + Terraform), not AWS verified. |
+| Event-driven analysis | TESTED | Ingest → EventBridge → SQS → worker, not in-request theatre | Local processor still TESTED. AWS bus/rule/queue/DLQ exist; worker and event source mapping do not. Not LIVE VERIFIED. |
 | Idempotent ingestion | TESTED | Duplicate event_id does not double-apply | Processor + memory/DynamoDB conditional CreateEvent + HTTP 200 duplicate. Local only. |
 | Public recruiter demo | IMPLEMENTED | Unauthenticated synthetic scenarios through real logic | Local console + `POST /demo/reset`. Not publicly deployed. |
 | Self-dogfooding CI evidence | IMPLEMENTED | This repo's real SHA/run/deploy metadata visible in-product | `GET /status` + live evidence ingest. No live rows until a real pipeline event is posted. |
@@ -83,7 +83,7 @@ This remains a portfolio project. It is not professional work experience.
 | Integration tests | TESTED | Repository/event boundaries | DynamoDB-compatible fake + event processor tests. Not DynamoDB Local / LocalStack. |
 | Cypress E2E | TESTED | Recruiter demo paths | `frontend/cypress/e2e/recruiter.cy.ts` against local API+Angular. Not public. |
 | k6 performance test | PLANNED | Documented run + limitations | None |
-| Dead letter handling | TESTED | SQS DLQ exists and is observable | In-process Processor DLQ for malformed/poison/unsupported schema. SQS DLQ not created. |
+| Dead letter handling | TESTED | SQS DLQ exists and is observable | In-process Processor DLQ TESTED. AWS queue `cloudops-prod-analysis-dlq` and alarm exist; poison path not exercised by a worker. |
 
 ## Explicit non-claims
 

@@ -16,6 +16,12 @@ terraform.tfstate
 terraform.tfstate.backup
 *.tfstate
 *.tfstate.*
+infra/.aws-login-config
+infra/tfplan
+infra/plan-output.txt
+infra/plan-raw.txt
+infra/apply-output.txt
+infra/apply-raw.txt
 
 # Go
 bin/

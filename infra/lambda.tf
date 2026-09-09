@@ -49,12 +49,12 @@ resource "aws_lambda_function" "worker" {
 
   environment {
     variables = {
-      APP_ENV          = "prod"
-      APP_STORE        = "dynamodb"
-      APP_SEED_LOCAL   = "false"
-      APP_LOG_LEVEL    = "info"
-      DDB_TABLE_NAME   = aws_dynamodb_table.main.name
-      AWS_REGION       = var.aws_region
+      APP_ENV        = "prod"
+      APP_STORE      = "dynamodb"
+      APP_SEED_LOCAL = "false"
+      APP_LOG_LEVEL  = "info"
+      DDB_TABLE_NAME = aws_dynamodb_table.main.name
+      AWS_REGION     = var.aws_region
     }
   }
 

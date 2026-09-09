@@ -2,7 +2,9 @@
 
 This file is the stop-the-line review required before any AWS resource is created.
 
-**Status: NOT APPLIED.** No AWS bill has been incurred by this project.
+**Status: FIRST BOOTSTRAP APPLIED (2026-09-09).** Foundation resources exist in `eu-west-1`. Lambda, API Gateway, and the public demo are still not created.
+
+This file remains the cost checkpoint. It is no longer a “do not apply” gate for the first plan.
 
 ## Resource list (intended first apply)
 
@@ -79,12 +81,23 @@ Demo reset rewrites a bounded Northstar catalog. It does not write unbounded tim
 
 ## Budget
 
-- Warning intent: **$5**
-- Stronger warning: **$10** (budget limit)
-- Email subscriber is optional (`budget_notification_email`). The budget resource is still created.
+- Warning: **$5** actual-spend notification (email)
+- Stronger warning: **$10** actual-spend notification (email); budget limit is also $10
+- Subscriber email is a **required Terraform input**, not committed:
+
+```powershell
+$env:TF_VAR_budget_notification_email = "you@example.com"
+```
+
+Or copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars` (gitignored) and set `budget_notification_email`.
+
 
 ## Apply decision
 
 Estimated recurring idle cost stays inside the original low single-digit USD target.
 
-**Do not apply until the account owner signs in to AWS and approves this checkpoint.**
+**First bootstrap:** applied 2026-09-09 (`34 added, 0 changed, 0 destroyed`). Post-apply inspection found no NAT Gateway, EKS, RDS, EC2, Elastic IP, VPC endpoint, Lambda function, or API Gateway.
+
+**Do not run GitHub Actions terraform apply** while state is local (`infra/terraform.tfstate`, gitignored). That would risk a second stack.
+
+**Second bootstrap (not started):** push an immutable ECR image digest, then apply with `api_image_uri` set. That creates Lambda + HTTP API. Do not start that until explicitly approved.
