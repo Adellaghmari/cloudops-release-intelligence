@@ -35,6 +35,8 @@ infra/tfplan-hardening*
 infra/bootstrap/tfplan*
 infra/bootstrap/plan-*.txt
 infra/bootstrap/.terraform/
+infra/state-backups/
+
 
 
 # Go

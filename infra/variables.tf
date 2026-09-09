@@ -59,3 +59,21 @@ variable "cors_additional_origins" {
   description = "Extra browser origins besides the CloudFront domain."
   default     = []
 }
+
+variable "terraform_state_bucket_arn" {
+  type        = string
+  description = "ARN of the remote state bucket from infra/bootstrap. Empty skips GitHub state-access policies (set after bootstrap apply)."
+  default     = ""
+}
+
+variable "terraform_state_bucket_name" {
+  type        = string
+  description = "Name of the remote state bucket (documentation / future backend wiring). Optional until bootstrap apply."
+  default     = ""
+}
+
+variable "terraform_state_key" {
+  type        = string
+  description = "S3 object key for the main stack state (must match backend key)."
+  default     = "cloudops-release-intelligence/prod/terraform.tfstate"
+}

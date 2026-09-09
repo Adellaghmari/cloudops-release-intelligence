@@ -30,9 +30,13 @@
 - HTTP API chosen intentionally; no standalone APIGW X-Ray segment (not a defect)
 - Lambda API + worker X-Ray remain LIVE VERIFIED
 
-### Saved plans (DO NOT APPLY in 16A)
-- Bootstrap: `infra/bootstrap/tfplan-bootstrap-16a` → **9 add / 0 change / 0 destroy**
-- Main hardening: `infra/tfplan-hardening-16a` → **0 add / 1 change / 0 destroy** (scoped GitHub deploy IAM + `GetInvalidation`)
+## Phase 16A.1 correction (prepared, not applied)
+
+- Bootstrap owns **only** the S3 state foundation (no GitHub IAM attachments).
+- Main owns GitHub remote-state IAM (plan read+lock; apply get/put state + lock).
+- Plan OIDC trust narrowed to `main` + `pull_request` (no `repo:*`).
+- New plans: `infra/bootstrap/tfplan-bootstrap-16a1`, `infra/tfplan-hardening-16a1` (informational; discard after migration).
+- Migration still uses local `adel-admin` first; GitHub apply remains DISABLED.
 
 ### GitHub Terraform apply
 - Remains **DISABLED** (local product state; draft `terraform.yml` gated on `TERRAFORM_REMOTE_STATE_READY`)

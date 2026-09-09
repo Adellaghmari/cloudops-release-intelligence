@@ -1,67 +1,91 @@
 # Terraform state
 
-## Current strategy (Phase 16A)
+## Current strategy (Phase 16A.1)
 
 Main stack state remains **local** in `infra/terraform.tfstate` until Phase 16B migration.
 
-GitHub Terraform **apply remains DISABLED** while state is local.
+GitHub Terraform **apply remains DISABLED**.
+
+Bootstrap stack keeps its **own small local state** under `infra/bootstrap/terraform.tfstate` forever (no recursive remote for bootstrap).
+
+## Ownership split (corrected)
+
+| Stack | Owns |
+| --- | --- |
+| `infra/bootstrap/` | S3 state bucket + security only (BPA, versioning, SSE-S3, ownership, deny insecure transport) |
+| `infra/` (main) | Product infrastructure + GitHub OIDC roles + **GitHub remote-state IAM policies** |
+
+Bootstrap must **not** attach policies to main-stack IAM roles (avoids cross-state lifecycle coupling).
 
 ## Target architecture (Phase 16B)
 
 ```
-infra/bootstrap/     → S3 state bucket + GitHub role state policies (own local state)
-infra/               → product stack using backend "s3" { use_lockfile = true }
+infra/bootstrap/  → private versioned SSE-S3 state bucket (local bootstrap state)
+infra/            → product stack + GitHub state-access policies
+                    backend "s3" { use_lockfile = true }
 ```
 
-### Why a separate bootstrap stack
+### Backend (main)
 
-The state bucket cannot live in the same Terraform state it is meant to store.
-`infra/bootstrap/` creates only:
+```hcl
+terraform {
+  backend "s3" {
+    bucket       = "<from bootstrap output state_bucket>"
+    key          = "cloudops-release-intelligence/prod/terraform.tfstate"
+    region       = "eu-west-1"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+```
 
-- private versioned SSE-S3 state bucket
-- Block Public Access + BucketOwnerEnforced
-- deny insecure transport bucket policy
-- least-privilege state/lock object access for existing GitHub plan + deploy roles
+No credentials in backend config. No DynamoDB lock table.
 
-No Lambda, API, DynamoDB, CloudFront, or product queues in bootstrap.
+### GitHub state IAM (main stack)
 
-### Locking
+After bootstrap apply, set gitignored vars:
 
-Use native S3 lockfile (`use_lockfile = true`).
+- `terraform_state_bucket_arn`
+- `terraform_state_bucket_name` (optional)
+- `terraform_state_key` (default matches backend key)
 
-Do **not** create a DynamoDB lock table (deprecated / unnecessary for this project).
+**Plan role** (exact objects):
 
-### Credentials
+- `s3:ListBucket` on bucket with prefix condition
+- `s3:GetObject` on state object only
+- `s3:GetObject` / `PutObject` / `DeleteObject` on `<key>.tflock` only
+- **No** `DeleteObject` or `PutObject` on the state object
 
-No access keys in backend config, GitHub variables, or committed files.
-Operators and GitHub Actions use OIDC / local AWS login.
+**Apply/deploy role**:
 
-Backend non-secrets (safe to document):
+- `s3:ListBucket` (prefix-conditioned)
+- `s3:GetObject` / `PutObject` on state object (**no** `DeleteObject` on state)
+- lock object Get/Put/Delete
 
-- bucket name
-- state key
-- region
-- `use_lockfile = true`
-- `encrypt = true`
+### Migration sequence (DO NOT RUN in 16A.1)
 
-### Migration procedure (DO NOT RUN in 16A)
-
-1. Backup `infra/terraform.tfstate` (+ `.backup`) to an offline path; record `serial` / lineage.
-2. `cd infra/bootstrap && terraform apply` (reviewed plan only).
-3. Verify bucket: public access block, versioning, encryption, ownership, no public ACL/policy grants.
-4. Rewrite `infra/backend.tf` to `backend "s3"` with `use_lockfile = true` (values from bootstrap outputs).
-5. `cd infra && terraform init -migrate-state` (confirm prompts carefully).
+1. Local operator `adel-admin` (not GitHub) applies **bootstrap** plan.
+2. Backup main local state: `terraform state pull > ../state-backups/main-pre-migrate.json` (gitignored); record SHA-256 of the backup file (do not print state contents).
+3. Configure `infra/backend.tf` for S3 + `use_lockfile`.
+4. Set `terraform_state_bucket_arn` (and name) from bootstrap outputs into gitignored tfvars.
+5. `cd infra && terraform init -migrate-state` as `adel-admin`.
 6. `terraform state list` matches pre-migration inventory.
-7. `terraform plan` → prefer `0/0/0` or only reviewed Phase 16 hardening.
-8. Keep local backup until several successful remote plans/applies.
-9. Only then enable controlled GitHub apply (`workflow_dispatch` / environment gate).
+7. **Discard** any pre-migration saved plan (e.g. `tfplan-hardening-16a` / `16a1`). Regenerate a **fresh** plan against remote state.
+8. Apply main hardening locally (includes GitHub state IAM + GetInvalidation scoping).
+9. Test GitHub Terraform **plan** via OIDC.
+10. Only later: controlled GitHub **apply** (`workflow_dispatch` + env + enable flag).
+
+### Saved plan rule
+
+Never apply a main plan generated against **local** state after the backend has migrated. Always replan on the remote backend.
 
 ### What must never be committed
 
 - `terraform.tfstate` / `*.tfstate*`
+- `state-backups/`
 - `*.tfvars` (except examples)
 - `tfplan*`
 - `.aws-login-config`
-- session tokens / access keys
+- credentials / session tokens
 
 `.terraform.lock.hcl` **is** committed.
