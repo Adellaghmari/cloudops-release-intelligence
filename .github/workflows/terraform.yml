@@ -64,13 +64,15 @@ jobs:
     name: terraform-plan
     runs-on: ubuntu-latest
     needs: [fmt-validate]
-    # Remote state ready + plan role + never give AWS creds to fork PR code.
-    # Skip parallel plan during controlled apply to avoid S3 lock contention
-    # (apply job generates its own same-job plan).
+    # Skip parallel plan only when the gated apply job will actually run
+    # (avoids S3 lock contention). If apply input is true but the gate is off,
+    # still run plan so fmt/validate/plan remain available.
     if: >
       vars.TERRAFORM_REMOTE_STATE_READY == 'true' &&
       vars.AWS_PLAN_ROLE_ARN != '' &&
-      !(github.event_name == 'workflow_dispatch' && inputs.apply == true) &&
+      !(github.event_name == 'workflow_dispatch' &&
+        inputs.apply == true &&
+        vars.ENABLE_TERRAFORM_APPLY == 'true') &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name == github.repository)
     defaults:
