@@ -47,14 +47,14 @@ If a future design seems to require NAT, stop and redesign (usually: keep Lambda
 
 When Terraform is applied:
 
-1. AWS Budget `cloudops-monthly` with actual/forecasted alerts at **$5** and **$10**.
+1. AWS Budget `cloudops-prod-monthly` with **$5** and **$10** ACTUAL alerts (limit $10). First bootstrap applied 2026-09-09.
 2. CloudWatch log groups: retention **14 days**.
 3. DynamoDB: `PAY_PER_REQUEST` only. No provisioned capacity.
 4. Lambda: memory sized for cold-start vs cost after first traces exist; start at 512 MB API / 512 MB worker.
 5. S3 lifecycle: raw events expire after **90 days**.
 6. X-Ray sampling: conservative after free-tier headroom is understood.
 
-Alert destination: the account holder's email already on the AWS account. No new paid notification bus.
+Alert destination: set `budget_notification_email` via gitignored `infra/terraform.tfvars` or `TF_VAR_budget_notification_email`. Do not commit the address. No new paid notification bus.
 
 ## Demo-reset cost control
 

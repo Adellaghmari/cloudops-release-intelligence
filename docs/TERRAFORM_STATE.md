@@ -13,12 +13,14 @@ Why:
 How secrets are handled:
 
 - State may contain resource IDs and ARNs. It must never be committed.
-- Secret `.tfvars` files are gitignored. `terraform.tfvars.example` has no secrets.
+- Secret `.tfvars` files are gitignored. `terraform.tfvars.example` has no real email or credentials.
+- `budget_notification_email` is required for apply. Provide it with `TF_VAR_budget_notification_email` or a local `terraform.tfvars`. It is an operational contact, not a secret, but still must not be committed.
 - AWS credentials are never stored in Terraform files. Apply uses the operator's local AWS login or GitHub OIDC.
 
 Locking / concurrency:
 
 - Local state has no remote lock. Do not run two applies at once.
+- **Do not enable GitHub Actions `terraform apply` while state is local.** CI would not see this state and could create a duplicate stack.
 - After a remote backend exists, use S3 + DynamoDB lock in a **separately documented** bootstrap, not this stack.
 
 What must never be committed:

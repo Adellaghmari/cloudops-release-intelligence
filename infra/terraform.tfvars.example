@@ -1,9 +1,14 @@
-# Copy to terraform.tfvars locally if you need overrides.
-# Never commit secret values. This file contains no secrets.
+# Copy to terraform.tfvars in this directory (gitignored) OR set:
+#   PowerShell: $env:TF_VAR_budget_notification_email = "you@example.com"
+#   bash:       export TF_VAR_budget_notification_email="you@example.com"
+#
+# The email is an operational contact, not a credential. Still do not commit terraform.tfvars.
 
-aws_region                   = "eu-west-1"
-github_owner                 = "Adellaghmari"
-github_repo                  = "cloudops-release-intelligence"
-create_github_oidc_provider  = true
-api_image_uri                = ""
-budget_notification_email    = ""
+aws_region                  = "eu-west-1"
+github_owner                = "Adellaghmari"
+github_repo                 = "cloudops-release-intelligence"
+create_github_oidc_provider = true
+api_image_uri               = ""
+
+# Required for $5 warning and $10 stronger AWS Budget notifications.
+# budget_notification_email = "you@example.com"

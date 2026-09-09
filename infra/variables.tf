@@ -46,8 +46,12 @@ variable "worker_image_uri" {
 
 variable "budget_notification_email" {
   type        = string
-  description = "Optional email for $5/$10 budget alerts. Leave empty to create the budget without subscribers."
-  default     = ""
+  description = "Email for $5 warning and $10 stronger AWS Budget notifications. Provide via gitignored terraform.tfvars or TF_VAR_budget_notification_email. Not a secret; do not commit the real address."
+
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.budget_notification_email))
+    error_message = "budget_notification_email must be a non-empty email address."
+  }
 }
 
 variable "cors_additional_origins" {
