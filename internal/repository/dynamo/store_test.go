@@ -3,10 +3,12 @@ package dynamo
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Adellaghmari/cloudops-release-intelligence/internal/domain"
+	"github.com/aws/smithy-go"
 )
 
 func testStore(t *testing.T) *Store {
@@ -140,11 +142,32 @@ func TestNotFoundAndCanceledContext(t *testing.T) {
 }
 
 func TestPublicErrorsDoNotLeakAWS(t *testing.T) {
-	err := wrapErr("put_service", errors.New("AccessDeniedException: not authorized"))
+	err := wrapErr("put_service", errors.New("AccessDeniedException: not authorized secret=AKIATEST"))
 	if err == nil || err.Error() != "storage put_service failed" {
 		t.Fatalf("wrapped=%v", err)
 	}
+	if strings.Contains(err.Error(), "AKIATEST") || strings.Contains(err.Error(), "not authorized") {
+		t.Fatalf("leaked aws detail: %v", err)
+	}
+
+	coded := wrapErr("put_service", &fakeAPIError{code: "UnrecognizedClientException", msg: "secret=SESSION"})
+	if coded == nil || coded.Error() != "storage put_service failed (UnrecognizedClientException)" {
+		t.Fatalf("coded wrapped=%v", coded)
+	}
+	if strings.Contains(coded.Error(), "SESSION") {
+		t.Fatalf("leaked aws message: %v", coded)
+	}
 }
+
+type fakeAPIError struct {
+	code string
+	msg  string
+}
+
+func (e *fakeAPIError) Error() string                 { return e.code + ": " + e.msg }
+func (e *fakeAPIError) ErrorCode() string             { return e.code }
+func (e *fakeAPIError) ErrorMessage() string          { return e.msg }
+func (e *fakeAPIError) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
 func TestOperationalEvidenceAndResetPreserveLive(t *testing.T) {
 	ctx := context.Background()

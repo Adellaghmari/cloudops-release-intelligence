@@ -28,7 +28,23 @@ func wrapErr(op string, err error) error {
 			return domain.AlreadyExistsError{Resource: "item", ID: op}
 		}
 	}
+	// Keep the public Error() free of raw AWS messages/secrets. Include only a
+	// safe API error code when available so CloudWatch/slog retain diagnosis.
+	if code := awsErrCode(err); code != "" {
+		return fmt.Errorf("storage %s failed (%s)", op, code)
+	}
 	return fmt.Errorf("storage %s failed", op)
+}
+
+func awsErrCode(err error) string {
+	var api smithy.APIError
+	if errors.As(err, &api) {
+		code := strings.TrimSpace(api.ErrorCode())
+		if code != "" {
+			return code
+		}
+	}
+	return ""
 }
 
 func isConditionalCancel(tx *types.TransactionCanceledException) bool {
