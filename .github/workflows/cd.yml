@@ -298,11 +298,17 @@ jobs:
             --query 'Invalidation.Id' \
             --output text)"
           echo "invalidation_id=$ID"
-          # Requires cloudfront:GetInvalidation on the deploy role (Phase 16A plan; apply in 16B).
-          aws cloudfront wait invalidation-completed \
-            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
-            --id "$ID"
-          echo "invalidation_completed=$ID"
+          # Waiter requires cloudfront:GetInvalidation (Phase 16A IAM plan; apply in 16B).
+          if aws cloudfront get-invalidation \
+              --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+              --id "$ID" >/dev/null 2>&1; then
+            aws cloudfront wait invalidation-completed \
+              --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+              --id "$ID"
+            echo "invalidation_completed=$ID"
+          else
+            echo "::warning::GetInvalidation not yet granted on deploy role; invalidation $ID created without wait. Apply Phase 16B IAM hardening to enable the waiter."
+          fi
       - name: Post frontend deploy live evidence
         env:
           API_URL: ${{ vars.PUBLIC_API_URL }}
