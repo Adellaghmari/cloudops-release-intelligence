@@ -1,12 +1,44 @@
 # Terraform state
 
-## Current strategy (Phase 16A.1)
+## Current strategy (Phase 16B Part 1 — LIVE)
 
-Main stack state remains **local** in `infra/terraform.tfstate` until Phase 16B migration.
+Main stack state is on **S3**:
+
+- bucket: `cloudops-prod-tfstate-7d9fdd77`
+- key: `cloudops-release-intelligence/prod/terraform.tfstate`
+- region: `eu-west-1`
+- `encrypt = true`
+- `use_lockfile = true`
+
+Bootstrap stack state remains **local** under `infra/bootstrap/terraform.tfstate` (intentional; backed up in gitignored `infra/state-backups/`).
 
 GitHub Terraform **apply remains DISABLED**.
 
-Bootstrap stack keeps its **own small local state** under `infra/bootstrap/terraform.tfstate` forever (no recursive remote for bootstrap).
+Pre-migration main backup (gitignored):
+
+- `infra/state-backups/main-pre-s3-migration-20260909.tfstate`
+- SHA-256 recorded in Phase 16B Part 1 report (do not commit)
+
+## Ownership split
+
+| Stack | Owns |
+| --- | --- |
+| `infra/bootstrap/` | S3 state bucket + security only |
+| `infra/` (main) | Product infrastructure + GitHub OIDC roles + GitHub remote-state IAM policies |
+
+## GitHub state IAM (main — planned, not yet applied)
+
+**Plan + apply roles** (exact objects):
+
+- `s3:ListBucket` with prefix condition
+- state object: `s3:GetObject` + `s3:PutObject` (**no** `DeleteObject`)
+- lock object `<key>.tflock`: Get/Put/Delete
+
+Fresh remote plan: `tfplan-hardening-16b-remote-1` (apply in Part 2).
+
+## Migration completed locally with `adel-admin`
+
+Do not re-run `init -migrate-state` unless intentionally remediating. Never apply pre-migration saved plans.
 
 ## Ownership split (corrected)
 

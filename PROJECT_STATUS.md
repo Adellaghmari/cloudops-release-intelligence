@@ -1,59 +1,41 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence  
-**Phase:** 16A COMPLETE (hardening prepared; no new applies) — stop before 16B  
-**Status:** Public demo LIVE; Phase 16A plans ready; remote state NOT migrated  
-**Complete:** No (Phase 16B execution remains)
+**Phase:** 16B Part 1 COMPLETE (remote state migrated; main hardening NOT applied)  
+**Status:** Public demo LIVE; main state on S3 + lockfile proven  
+**Complete:** No (main hardening apply + GitHub plan/apply gates remain)
 
-## LIVE VERIFIED baseline (unchanged digest)
+## LIVE VERIFIED baseline
 
-- Frontend `https://d34fwrlm14h6js.cloudfront.net` HTTP 200
-- Backend `https://8kci5uht3d.execute-api.eu-west-1.amazonaws.com` `/health` `/ready` 200
+- Frontend / health / ready HTTP 200
 - Lambdas Active on `sha256:ef3778d5af9e80d155610d5ffb0a889e509a4ba3da3fee2ac6878c6c5287ade5`
-- Operator `adel-admin` / `eu-west-1` / account `912415493331`
+- Operator `adel-admin` / `eu-west-1`
 
-## Phase 16A findings (prepared, not applied)
+## Phase 16B Part 1
 
-### CloudFront TLS truth
-- Default `*.cloudfront.net` cert reports `MinimumProtocolVersion=TLSv1`
-- Terraform now matches AWS (`TLSv1`); stops impossible `TLSv1.2_2021` drift
-- Custom domain + ACM in **us-east-1** remains optional polish (user-owned DNS)
+### Bootstrap
+- Applied `tfplan-bootstrap-16a1`: **7 add / 0 change / 0 destroy**
+- Bucket `cloudops-prod-tfstate-7d9fdd77` — BPA, BucketOwnerEnforced, versioning, AES256, not public, no website
+- Bootstrap state remains **local** (backed up under gitignored `infra/state-backups/`)
 
-### DLQ newest poison closed
-- MessageId `149c73ef-9a9a-4996-857e-302be740df4f`
-- Body `{poison:true,note:synthetic-dlq-proof-20260909,not_an_envelope:1}`
-- Landed on DLQ with ApproximateReceiveCount ≥4 (observed 4 then 5 after peeks)
-- Alarm `cloudops-prod-analysis-dlq` State=ALARM
-- Labeled synthetic poisons deleted after proof (incl. historical `not-json`); DLQ empty
+### Main state migration
+- Pre-migration backup: `infra/state-backups/main-pre-s3-migration-20260909.tfstate`
+- Address count before/after: **50 / 50** (match)
+- Backend: S3 `cloudops-release-intelligence/prod/terraform.tfstate`, `use_lockfile=true`, `eu-west-1`
+- Remote object exists (AES256 + versioning)
+- Lock contention proven: concurrent plan failed with “Error acquiring the state lock”; lock released after cancel
 
-### API Gateway X-Ray boundary
-- HTTP API chosen intentionally; no standalone APIGW X-Ray segment (not a defect)
-- Lambda API + worker X-Ray remain LIVE VERIFIED
+### Fresh remote plan (DO NOT APPLY yet)
+- `infra/tfplan-hardening-16b-remote-1` → **2 add / 2 change / 0 destroy**
+- Adds GitHub plan/deploy terraform-state policies; updates plan OIDC trust + deploy IAM (`GetInvalidation`)
+- Pre-migration plans discarded as stale for apply
 
-## Phase 16A.1 correction (prepared, not applied)
+### Still DISABLED
+- GitHub Terraform apply (`ENABLE_TERRAFORM_APPLY`)
+- Main hardening apply (Part 2)
 
-- Bootstrap owns **only** the S3 state foundation (no GitHub IAM attachments).
-- Main owns GitHub remote-state IAM (plan read+lock; apply get/put state + lock).
-- Plan OIDC trust narrowed to `main` + `pull_request` (no `repo:*`).
-- New plans: `infra/bootstrap/tfplan-bootstrap-16a1`, `infra/tfplan-hardening-16a1` (informational; discard after migration).
-- Migration still uses local `adel-admin` first; GitHub apply remains DISABLED.
-
-### GitHub Terraform apply
-- Remains **DISABLED** (local product state; draft `terraform.yml` gated on `TERRAFORM_REMOTE_STATE_READY`)
-
-## Phase 16B execution order (recommended)
-
-1. Apply bootstrap plan → verify state bucket security  
-2. Backup local `terraform.tfstate`  
-3. Switch main `backend "s3"` + `use_lockfile=true` → `terraform init -migrate-state`  
-4. Confirm `plan` 0/0/0 (or only reviewed remainder)  
-5. Apply main hardening IAM plan (`tfplan-hardening-16a` or fresh)  
-6. Prove frontend invalidation waiter  
-7. Enable gated GitHub plan; then controlled `workflow_dispatch` apply  
-8. Optional: custom domain/ACM if user provides DNS  
-
-## Cost / security snapshot (16A audit)
-
-- Budget `cloudops-prod-monthly` present  
-- NAT/EC2/EKS/RDS/EIP/VPC endpoints = 0  
-- Web + raw S3 private (BPA); CloudFront OAC; ECR private; DynamoDB ACTIVE  
+## Next (Part 2)
+1. Review/apply `tfplan-hardening-16b-remote-1` (or regenerate if config drifted)
+2. Set `TERRAFORM_REMOTE_STATE_READY=true`
+3. Prove GitHub OIDC terraform plan (same-repo only)
+4. Later gated apply — not automatic on push
