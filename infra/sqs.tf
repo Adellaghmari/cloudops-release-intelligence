@@ -5,7 +5,7 @@ resource "aws_sqs_queue" "dlq" {
 
 resource "aws_sqs_queue" "analysis" {
   name                       = "${local.name_prefix}-analysis"
-  visibility_timeout_seconds = 90
+  visibility_timeout_seconds = 360
   message_retention_seconds  = 345600
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.dlq.arn

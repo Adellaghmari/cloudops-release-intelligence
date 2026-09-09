@@ -64,13 +64,12 @@ resource "aws_lambda_function" "worker" {
 }
 
 resource "aws_lambda_event_source_mapping" "worker" {
-  count            = local.deploy_compute ? 1 : 0
-  event_source_arn = aws_sqs_queue.analysis.arn
-  function_name    = aws_lambda_function.worker[0].arn
-  batch_size       = 5
+  count                   = local.deploy_compute ? 1 : 0
+  event_source_arn        = aws_sqs_queue.analysis.arn
+  function_name           = aws_lambda_function.worker[0].arn
+  batch_size              = 5
+  function_response_types = ["ReportBatchItemFailures"]
 }
 
-# Worker image is the same repository, different command. A second image
-# build target is used in CI (`--target lambda` with TARGET=./cmd/worker).
-# Until that digest is supplied, worker_image_uri can equal api_image_uri
-# only if the image contains both binaries. CI publishes two tags.
+# One Lambda image contains both binaries. image_config.command selects
+# `api` or `worker`. Do not publish a second repository for the worker.

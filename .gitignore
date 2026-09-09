@@ -22,6 +22,7 @@ infra/plan-output.txt
 infra/plan-raw.txt
 infra/apply-output.txt
 infra/apply-raw.txt
+infra/tfplan-compute
 
 # Go
 bin/

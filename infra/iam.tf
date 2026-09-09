@@ -206,6 +206,7 @@ data "aws_iam_policy_document" "lambda_worker" {
       "sqs:ReceiveMessage",
       "sqs:DeleteMessage",
       "sqs:GetQueueAttributes",
+      "sqs:ChangeMessageVisibility",
     ]
     resources = [aws_sqs_queue.analysis.arn]
   }

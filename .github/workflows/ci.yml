@@ -65,7 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy filesystem
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -73,7 +73,7 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
       - name: Trivy Terraform
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
           scan-ref: infra
@@ -136,11 +136,19 @@ jobs:
           user="$(docker image inspect cloudops-lambda:ci --format '{{.Config.User}}')"
           echo "lambda_user=$user"
           test "$user" = "1000:1000"
-      - name: Trivy image
-        uses: aquasecurity/trivy-action@0.28.0
+      - name: Trivy HTTP image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: cloudops-api:ci
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: Trivy Lambda image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: cloudops-lambda:ci
           severity: CRITICAL
           exit-code: "1"
           ignore-unfixed: true
