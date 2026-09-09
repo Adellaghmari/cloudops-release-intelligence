@@ -1,33 +1,67 @@
 # Terraform state
 
-## Current strategy (first controlled environment)
+## Current strategy (Phase 16A)
 
-State is **local** in `infra/terraform.tfstate`.
+Main stack state remains **local** in `infra/terraform.tfstate` until Phase 16B migration.
 
-Why:
+GitHub Terraform **apply remains DISABLED** while state is local.
 
-- There is no existing AWS account bootstrap in this repository.
-- Creating an S3 backend in the same stack that first creates the account's buckets is a circular bootstrap.
-- This environment is a single operator, single region, single apply path.
+## Target architecture (Phase 16B)
 
-How secrets are handled:
+```
+infra/bootstrap/     → S3 state bucket + GitHub role state policies (own local state)
+infra/               → product stack using backend "s3" { use_lockfile = true }
+```
 
-- State may contain resource IDs and ARNs. It must never be committed.
-- Secret `.tfvars` files are gitignored. `terraform.tfvars.example` has no real email or credentials.
-- `budget_notification_email` is required for apply. Provide it with `TF_VAR_budget_notification_email` or a local `terraform.tfvars`. It is an operational contact, not a secret, but still must not be committed.
-- AWS credentials are never stored in Terraform files. Apply uses the operator's local AWS login or GitHub OIDC.
+### Why a separate bootstrap stack
 
-Locking / concurrency:
+The state bucket cannot live in the same Terraform state it is meant to store.
+`infra/bootstrap/` creates only:
 
-- Local state has no remote lock. Do not run two applies at once.
-- **Do not enable GitHub Actions `terraform apply` while state is local.** CI would not see this state and could create a duplicate stack.
-- After a remote backend exists, use S3 + DynamoDB lock in a **separately documented** bootstrap, not this stack.
+- private versioned SSE-S3 state bucket
+- Block Public Access + BucketOwnerEnforced
+- deny insecure transport bucket policy
+- least-privilege state/lock object access for existing GitHub plan + deploy roles
 
-What must never be committed:
+No Lambda, API, DynamoDB, CloudFront, or product queues in bootstrap.
 
-- `terraform.tfstate`
-- `terraform.tfstate.backup`
-- `*.tfvars` except `*.tfvars.example`
-- crash logs and override files
+### Locking
 
-`.terraform.lock.hcl` **is** committed so provider versions stay pinned.
+Use native S3 lockfile (`use_lockfile = true`).
+
+Do **not** create a DynamoDB lock table (deprecated / unnecessary for this project).
+
+### Credentials
+
+No access keys in backend config, GitHub variables, or committed files.
+Operators and GitHub Actions use OIDC / local AWS login.
+
+Backend non-secrets (safe to document):
+
+- bucket name
+- state key
+- region
+- `use_lockfile = true`
+- `encrypt = true`
+
+### Migration procedure (DO NOT RUN in 16A)
+
+1. Backup `infra/terraform.tfstate` (+ `.backup`) to an offline path; record `serial` / lineage.
+2. `cd infra/bootstrap && terraform apply` (reviewed plan only).
+3. Verify bucket: public access block, versioning, encryption, ownership, no public ACL/policy grants.
+4. Rewrite `infra/backend.tf` to `backend "s3"` with `use_lockfile = true` (values from bootstrap outputs).
+5. `cd infra && terraform init -migrate-state` (confirm prompts carefully).
+6. `terraform state list` matches pre-migration inventory.
+7. `terraform plan` → prefer `0/0/0` or only reviewed Phase 16 hardening.
+8. Keep local backup until several successful remote plans/applies.
+9. Only then enable controlled GitHub apply (`workflow_dispatch` / environment gate).
+
+### What must never be committed
+
+- `terraform.tfstate` / `*.tfstate*`
+- `*.tfvars` (except examples)
+- `tfplan*`
+- `.aws-login-config`
+- session tokens / access keys
+
+`.terraform.lock.hcl` **is** committed.

@@ -72,11 +72,19 @@ resource "aws_iam_role" "github_plan" {
   assume_role_policy = data.aws_iam_policy_document.github_plan_assume.json
 }
 
+# Portfolio-grade deploy policy: Resource:"*" only where AWS requires it
+# (e.g. ecr:GetAuthorizationToken). Resource-capable actions are scoped.
 data "aws_iam_policy_document" "github_deploy" {
   statement {
-    sid = "ECR"
+    sid     = "ECRAuthToken"
+    actions = ["ecr:GetAuthorizationToken"]
+    # AWS documents this API as account-scoped; Resource must be "*".
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "ECRRepository"
     actions = [
-      "ecr:GetAuthorizationToken",
       "ecr:GetDownloadUrlForLayer",
       "ecr:BatchCheckLayerAvailability",
       "ecr:CompleteLayerUpload",
@@ -87,30 +95,76 @@ data "aws_iam_policy_document" "github_deploy" {
       "ecr:DescribeRepositories",
       "ecr:DescribeImages",
     ]
-    resources = ["*"]
+    resources = [aws_ecr_repository.api.arn]
   }
+
   statement {
-    sid = "Runtime"
+    sid = "LambdaDeploy"
     actions = [
       "lambda:UpdateFunctionCode",
       "lambda:UpdateFunctionConfiguration",
       "lambda:GetFunction",
       "lambda:GetFunctionConfiguration",
+    ]
+    resources = [
+      "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name_prefix}-api",
+      "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name_prefix}-worker",
+    ]
+  }
+
+  statement {
+    sid = "WebBucketList"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketLocation",
+    ]
+    resources = [aws_s3_bucket.web.arn]
+  }
+
+  statement {
+    sid = "WebBucketObjects"
+    actions = [
       "s3:PutObject",
       "s3:GetObject",
-      "s3:ListBucket",
       "s3:DeleteObject",
+    ]
+    resources = ["${aws_s3_bucket.web.arn}/*"]
+  }
+
+  statement {
+    sid = "CloudFrontInvalidation"
+    actions = [
       "cloudfront:CreateInvalidation",
+      "cloudfront:GetInvalidation",
       "cloudfront:GetDistribution",
+    ]
+    resources = [aws_cloudfront_distribution.web.arn]
+  }
+
+  # Read-only / smoke checks used by CD evidence steps (narrow where possible).
+  statement {
+    sid = "DeployEvidenceReads"
+    actions = [
       "dynamodb:DescribeTable",
-      "dynamodb:PutItem",
-      "dynamodb:GetItem",
-      "dynamodb:Query",
-      "events:PutEvents",
       "sqs:GetQueueAttributes",
       "apigateway:GET",
     ]
     resources = ["*"]
+  }
+
+  statement {
+    sid = "DeployEvidenceWrites"
+    actions = [
+      "dynamodb:PutItem",
+      "dynamodb:GetItem",
+      "dynamodb:Query",
+      "events:PutEvents",
+    ]
+    resources = [
+      aws_dynamodb_table.main.arn,
+      "${aws_dynamodb_table.main.arn}/index/*",
+      aws_cloudwatch_event_bus.main.arn,
+    ]
   }
 }
 
@@ -120,6 +174,8 @@ resource "aws_iam_role_policy" "github_deploy" {
   policy = data.aws_iam_policy_document.github_deploy.json
 }
 
+# Plan role: ReadOnlyAccess for refresh/plan, plus explicit S3 state RW/lock
+# placeholders for Phase 16B remote-state migration (no state bucket in this stack).
 resource "aws_iam_role_policy_attachment" "github_plan" {
   role       = aws_iam_role.github_plan.name
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"

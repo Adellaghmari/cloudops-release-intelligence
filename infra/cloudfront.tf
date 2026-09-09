@@ -29,9 +29,12 @@ resource "aws_cloudfront_distribution" "web" {
     }
   }
 
+  # Default *.cloudfront.net certificate: AWS reports MinimumProtocolVersion=TLSv1
+  # regardless of TLSv1.2_2021. Do not fight that with perpetual drift.
+  # Custom domain + ACM (us-east-1) is required for a modern viewer TLS policy.
   viewer_certificate {
     cloudfront_default_certificate = true
-    minimum_protocol_version       = "TLSv1.2_2021"
+    minimum_protocol_version       = "TLSv1"
   }
 
   custom_error_response {
