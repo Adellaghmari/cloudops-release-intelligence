@@ -1,47 +1,55 @@
 # Project status
 
 **Project:** CloudOps Release Intelligence  
-**Phase:** 15 COMPLETE (public recruiter demo LIVE) — stop before Phase 16  
-**Status:** Public frontend + backend operating together  
-**Complete:** No (Phase 16 hardening remains)
+**Phase:** 16A COMPLETE (hardening prepared; no new applies) — stop before 16B  
+**Status:** Public demo LIVE; Phase 16A plans ready; remote state NOT migrated  
+**Complete:** No (Phase 16B execution remains)
 
-## LIVE VERIFIED (account `912415493331`, `eu-west-1`)
+## LIVE VERIFIED baseline (unchanged digest)
 
-### Public recruiter demo (Phase 15)
-- Frontend `https://d34fwrlm14h6js.cloudfront.net` HTTP 200 (Angular 21 production SPA)
-- SPA → API Gateway `https://8kci5uht3d.execute-api.eu-west-1.amazonaws.com` (prod `apiBase` absolute; no localhost in bundle)
-- Private S3 origin `cloudops-prod-web-7be25877` (Block Public Access all true; PolicyStatus IsPublic=false; CloudFront OAC `E3TW0G8ABTQWD8`)
-- CloudFront invalidation `IOLP72QIXMZIGX0SAGC7SUH68` completed after first upload
-- SPA routing fallback: direct GET `/`, `/services`, `/releases`, `/releases/rel_northstar_payments_demo`, `/architecture`, `/replay`, `/status` → 200 HTML (not S3 XML)
-- Browser proof: Operations overview, release detail (risk/health/impact/policy/rollback/timeline), System Status LIVE PROJECT DATA
-- CORS from CloudFront origin allowed; `evil.example` gets no `Access-Control-Allow-Origin`
-- LIVE vs SYNTHETIC labeling in UI; dogfood row `evt_gha_phase15a1b2c3d4` shows git SHA `9710098e…`, CD run `34379595587`, digest `sha256:ef3778d5…`
-- First SPA upload: manual `adel-admin` `aws s3 sync` + invalidation `IOLP72QIXMZIGX0SAGC7SUH68`
-- GitHub OIDC frontend deploy LIVE: [cd 34384490644](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34384490644) — OIDC assume + production build + S3 sync + CreateInvalidation; Lambda skipped; digests unchanged `ef3778d5…`. Prior attempt [34384226392](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34384226392) failed only on waiter (`GetInvalidation` missing; waiter removed; IAM expansion deferred to Phase 16)
-- CD path filters skip Lambda on frontend/docs/workflow-only pushes; `workflow_dispatch` Lambda rebuild requires explicit `force_lambda` input
+- Frontend `https://d34fwrlm14h6js.cloudfront.net` HTTP 200
+- Backend `https://8kci5uht3d.execute-api.eu-west-1.amazonaws.com` `/health` `/ready` 200
+- Lambdas Active on `sha256:ef3778d5af9e80d155610d5ffb0a889e509a4ba3da3fee2ac6878c6c5287ade5`
+- Operator `adel-admin` / `eu-west-1` / account `912415493331`
 
-### Backend (unchanged digest)
-- Lambdas remain `sha256:ef3778d5af9e80d155610d5ffb0a889e509a4ba3da3fee2ac6878c6c5287ade5` (Git `9710098e…`) — not rebuilt for frontend/docs
-- Public API health/ready/services/releases + analysis surfaces HTTP 200
-- DynamoDB `cloudops-prod-main`; Northstar SYNTHETIC seed
-- EventBridge → SQS → worker; EventID idempotency; CloudWatch; X-Ray (prior session)
-- DLQ/retry: historical DLQ body `not-json` ReceiveCount=4 (ALARM); newer poison `149c73ef…` first fail observed — full 3×360s wait for that message was not finished in-session
-- CI/CD, OIDC, Trivy, Syft, Cosign (prior); CD path filters now skip Lambda image build on frontend/docs-only pushes
+## Phase 16A findings (prepared, not applied)
 
-### CloudFront TLS apply attempt
-- Fresh plan exactly `0 add / 2 change / 0 destroy` (TLS floor desired `TLSv1.2_2021` + S3 web policy refresh) → applied saved `tfplan-cloudfront-tls-1`
-- AWS still reports ViewerCertificate `MinimumProtocolVersion=TLSv1` for default `*.cloudfront.net` certificate; Terraform desired state remains `TLSv1.2_2021` → persistent plan drift `0/2/0` (no resource replacement). True TLS 1.2 floor reporting needs custom domain + ACM (Phase 16)
+### CloudFront TLS truth
+- Default `*.cloudfront.net` cert reports `MinimumProtocolVersion=TLSv1`
+- Terraform now matches AWS (`TLSv1`); stops impossible `TLSv1.2_2021` drift
+- Custom domain + ACM in **us-east-1** remains optional polish (user-owned DNS)
 
-## NOT LIVE VERIFIED / Phase 16 hardening
+### DLQ newest poison closed
+- MessageId `149c73ef-9a9a-4996-857e-302be740df4f`
+- Body `{poison:true,note:synthetic-dlq-proof-20260909,not_an_envelope:1}`
+- Landed on DLQ with ApproximateReceiveCount ≥4 (observed 4 then 5 after peeks)
+- Alarm `cloudops-prod-analysis-dlq` State=ALARM
+- Labeled synthetic poisons deleted after proof (incl. historical `not-json`); DLQ empty
 
-- Add `cloudfront:GetInvalidation` to deploy role (Terraform IAM review) so CD can wait on invalidations
-- Custom domain + ACM so CloudFront can enforce/report TLSv1.2_2021 (default cert reports TLSv1)
-- Full in-session wait for newest poison message through all 3 receives into DLQ (~18 min)
-- API Gateway / DynamoDB as distinct X-Ray subsegments
-- GitHub Terraform apply (local state only — remains DISABLED)
-- Remote Terraform backend
-- Project C
+### API Gateway X-Ray boundary
+- HTTP API chosen intentionally; no standalone APIGW X-Ray segment (not a defect)
+- Lambda API + worker X-Ray remain LIVE VERIFIED
 
-## Cost posture
+### Saved plans (DO NOT APPLY in 16A)
+- Bootstrap: `infra/bootstrap/tfplan-bootstrap-16a` → **9 add / 0 change / 0 destroy**
+- Main hardening: `infra/tfplan-hardening-16a` → **0 add / 1 change / 0 destroy** (scoped GitHub deploy IAM + `GetInvalidation`)
 
-Budget `cloudops-prod-monthly` configured. No NAT Gateway, no running EC2, no EKS, no RDS, no Elastic IP, no VPC endpoint observed in this check. Serverless portfolio stack only.
+### GitHub Terraform apply
+- Remains **DISABLED** (local product state; draft `terraform.yml` gated on `TERRAFORM_REMOTE_STATE_READY`)
+
+## Phase 16B execution order (recommended)
+
+1. Apply bootstrap plan → verify state bucket security  
+2. Backup local `terraform.tfstate`  
+3. Switch main `backend "s3"` + `use_lockfile=true` → `terraform init -migrate-state`  
+4. Confirm `plan` 0/0/0 (or only reviewed remainder)  
+5. Apply main hardening IAM plan (`tfplan-hardening-16a` or fresh)  
+6. Prove frontend invalidation waiter  
+7. Enable gated GitHub plan; then controlled `workflow_dispatch` apply  
+8. Optional: custom domain/ACM if user provides DNS  
+
+## Cost / security snapshot (16A audit)
+
+- Budget `cloudops-prod-monthly` present  
+- NAT/EC2/EKS/RDS/EIP/VPC endpoints = 0  
+- Web + raw S3 private (BPA); CloudFront OAC; ECR private; DynamoDB ACTIVE  

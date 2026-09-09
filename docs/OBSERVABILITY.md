@@ -23,7 +23,11 @@ Retention: 14 days.
 
 ## Traces
 
-X-Ray on API Lambda and worker Lambda. Pass `correlation_id` as an annotation. Subsegments for DynamoDB, EventBridge, S3, OPA eval, risk compute.
+X-Ray **Active** tracing on the API Lambda and worker Lambda is LIVE VERIFIED.
+
+API Gateway is an **HTTP API** (`apigatewayv2`). HTTP APIs do not provide a standalone API Gateway X-Ray segment (unlike REST API). That is an intentional cost/simplicity tradeoff, not a missing defect to "fix" by migrating API types.
+
+Pass `correlation_id` as an annotation when present. Additional DynamoDB subsegments are optional polish only — do not rebuild the backend solely for a prettier service map.
 
 ## Metrics (custom namespace `CloudOps`)
 
