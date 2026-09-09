@@ -81,3 +81,7 @@ desktop.ini
 credentials.json
 aws-credentials
 github-token
+
+infra/apply-runtime*
+
+infra/tfplan-dynamodb*
