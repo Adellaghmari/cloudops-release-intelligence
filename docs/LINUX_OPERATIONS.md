@@ -18,17 +18,19 @@ There is no always-on Linux VM in the architecture.
 ## Runtime model
 
 - A container shares the host kernel. It is not a second machine.
-- Lambda starts the image, then the Runtime API talks to the `api` or `worker` binary.
+- Lambda starts the AWS base-image entrypoint, which launches `/var/task/bootstrap`.
+- `bootstrap` reads `_HANDLER` (from `CMD` / Terraform `image_config.command`) and `exec`s `api` or `worker`.
+- Each Go binary uses `aws-lambda-go` against the Runtime API when `AWS_LAMBDA_RUNTIME_API` is set.
 - Local HTTP uses the same graceful-shutdown code as PID 1 in the distroless image.
 
 ## Users, groups, permissions
 
-- HTTP image user: `65532:65532` (distroless `nonroot`)
-- Lambda image user: `1000:1000`
+- HTTP image user: `65532:65532` (distroless `nonroot`) — this is the non-root proof surface.
+- Lambda image: do **not** set `USER` in the Dockerfile. The `provided.al2023` base entrypoint must run as the image default user; Lambda's execution environment provides the sandbox.
 - Writable runtime dir: `HOME=/tmp` on the HTTP image. No `chmod 777`.
 - `chmod` changes permission bits. `chown` changes owner. `755` means owner rwx, group rx, other rx.
 
-Why non-root: a compromised process should not be able to write the rest of the image or bind privileged ports. Lambda may still remap the user; the image still must not default to root.
+Why non-root on HTTP: a compromised process should not be able to write the rest of the image or bind privileged ports. For Lambda, isolation is the AWS sandbox; forcing `USER 1000:1000` on the AWS base image breaks the entrypoint contract.
 
 ## Processes and signals
 
@@ -92,7 +94,7 @@ Namespaces isolate process/network/mount views. Cgroups limit CPU/memory. This p
 
 ## Interview questions (honest answers)
 
-**Why run as non-root?** Limit blast radius if the process is exploited. This image sets USER 65532 / 1000.
+**Why run as non-root?** Limit blast radius if the process is exploited. The HTTP image sets USER 65532. The Lambda image relies on the AWS sandbox and must not override the base-image user.
 
 **What is PID 1?** The first process in the container. It must reap children and handle SIGTERM. Our API binary *is* PID 1 in the HTTP image.
 

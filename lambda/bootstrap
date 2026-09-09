@@ -1,0 +1,27 @@
+#!/bin/sh
+# AWS Lambda provided.al2023 requires an executable named bootstrap in
+# LAMBDA_TASK_ROOT (/var/task). This dispatcher selects the Go binary from
+# image_config.command / CMD (stored as _HANDLER): api | worker.
+# Each binary uses aws-lambda-go against the Runtime API when
+# AWS_LAMBDA_RUNTIME_API is set. Do not rename this file.
+set -eu
+
+ROOT="${LAMBDA_TASK_ROOT:-/var/task}"
+MODE="${_HANDLER:-${1:-api}}"
+MODE="${MODE##*/}"
+
+case "$MODE" in
+  api|worker) ;;
+  *)
+    echo "unsupported Lambda mode: ${MODE} (expected api or worker)" >&2
+    exit 127
+    ;;
+esac
+
+TARGET="${ROOT}/${MODE}"
+if [ ! -x "$TARGET" ]; then
+  echo "Lambda binary missing or not executable: ${TARGET}" >&2
+  exit 127
+fi
+
+exec "$TARGET"

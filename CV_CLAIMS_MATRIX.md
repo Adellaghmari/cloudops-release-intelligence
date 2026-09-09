@@ -30,16 +30,16 @@ This remains a portfolio project. It is not professional work experience.
 
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
-| AWS Lambda | IMPLEMENTED | Terraform-applied functions serving traffic | `cmd/api` Lambda adapter + `cmd/worker` + IAM roles `cloudops-prod-api` / `cloudops-prod-worker`. `aws lambda list-functions` returns none. Not LIVE VERIFIED. |
-| Amazon API Gateway | IMPLEMENTED | Public HTTPS API | HTTP API Terraform + empty log group `/aws/apigateway/cloudops-prod-http`. `apigatewayv2 get-apis` returns none. Not LIVE VERIFIED. |
+| AWS Lambda | IMPLEMENTED | Terraform-applied functions serving traffic | `cmd/api` uses `aws-lambda-go` + `httpadapter`; `cmd/worker` is a genuine SQS handler with `ReportBatchItemFailures`. Functions Active on digest `08ab5782…` but init fails: image lacked `/var/task/bootstrap` (`Runtime.InvalidEntrypoint`). Corrected bootstrap dispatcher is in source; not LIVE VERIFIED until new digest is applied. |
+| Amazon API Gateway | IMPLEMENTED | Public HTTPS API | HTTP API exists (`8kci5uht3d` / `cloudops-prod-http`), but requests return `Internal Server Error` while Lambda init fails. Not LIVE VERIFIED. |
 | Amazon DynamoDB | TESTED | Production table with real items | Adapter TESTED against a local DynamoDB-compatible fake. Table `cloudops-prod-main` exists in `eu-west-1` (`PAY_PER_REQUEST`, GSI1, GSI2, ACTIVE). No application PutItem yet. Not LIVE VERIFIED for data. |
 | Amazon S3 | LIVE VERIFIED | Frontend origin and/or raw event objects | Buckets `cloudops-prod-web-7be25877` and `cloudops-prod-raw-7be25877`: BlockPublicAcls/IgnorePublicAcls/BlockPublicPolicy/RestrictPublicBuckets all true; AES256; raw lifecycle expire 90 days. SPA/raw objects not uploaded. |
 | Amazon CloudFront | LIVE VERIFIED | Distribution + OAC in the account | Distribution `E2220NQVG6GU75` (`d34fwrlm14h6js.cloudfront.net`) enabled; origin `s3-web` uses OAC `E3TW0G8ABTQWD8`. Angular not uploaded. Not a public recruiter demo. |
-| Amazon EventBridge | IMPLEMENTED | Custom bus receiving real events | Bus `cloudops-prod-release-events`, enabled rule `cloudops-prod-analysis`, target = `cloudops-prod-analysis` SQS. No real events received. Not LIVE VERIFIED for processing. |
-| Amazon SQS | IMPLEMENTED | Worker consuming analysis queue + DLQ | Queues exist; redrive `maxReceiveCount=3` to `cloudops-prod-analysis-dlq`. No worker mapping. Not LIVE VERIFIED for consume. |
-| Amazon ECR | LIVE VERIFIED | Immutable image exists in the repository | Repo `cloudops-prod-api`: `IMMUTABLE` + scan on push. Image tag `sha-c22171c3b6b8bd3946a2972f16283eac629f5ce3`, digest `sha256:08ab57825cc1f43a1527ad474f20a146e8f55dacb2c49323f42601129efa1a53`, linux/amd64. Not deployed to Lambda. |
-| Amazon CloudWatch | LIVE VERIFIED | Intended log groups and DLQ alarm exist | Groups `/aws/lambda/cloudops-prod-api`, `/aws/lambda/cloudops-prod-worker`, `/aws/apigateway/cloudops-prod-http` retention 14 days; alarm `cloudops-prod-analysis-dlq` on `ApproximateNumberOfMessagesVisible >= 1`. No application logs yet. |
-| AWS X-Ray | IMPLEMENTED | Traces for API and worker | Lambda `tracing_config = Active` in Terraform. Functions do not exist. No real trace. |
+| Amazon EventBridge | IMPLEMENTED | Custom bus receiving real events | Bus `cloudops-prod-release-events`, enabled rule `cloudops-prod-analysis`, target = `cloudops-prod-analysis` SQS. No successful processing yet. Not LIVE VERIFIED for processing. |
+| Amazon SQS | IMPLEMENTED | Worker consuming analysis queue + DLQ | Queues exist; visibility 360; redrive `maxReceiveCount=3`; event source mapping Enabled with `ReportBatchItemFailures`. Worker has not successfully processed. Not LIVE VERIFIED for consume. |
+| Amazon ECR | LIVE VERIFIED | Immutable image exists in the repository | Repo `cloudops-prod-api`: `IMMUTABLE` + scan on push. Historical broken image `sha-c22171c…` / `sha256:08ab5782…`. Corrected image pending push. |
+| Amazon CloudWatch | LIVE VERIFIED | Intended log groups and DLQ alarm exist | Groups `/aws/lambda/cloudops-prod-api`, `/aws/lambda/cloudops-prod-worker`, `/aws/apigateway/cloudops-prod-http` retention 14 days; alarm `cloudops-prod-analysis-dlq`. Init logs show `Runtime.InvalidEntrypoint` on the old image. |
+| AWS X-Ray | IMPLEMENTED | Traces for API and worker | Lambda `tracing_config = Active`. Failed-init trace IDs exist; successful app traces not LIVE VERIFIED. |
 | AWS IAM least privilege | IMPLEMENTED | Applied roles with scoped policies | Roles applied: `cloudops-prod-api`, `cloudops-prod-worker`, `cloudops-prod-github-deploy`, `cloudops-prod-github-plan`. GitHub deploy policy still uses `Resource: "*"` for several APIs. Not LIVE VERIFIED as least privilege. |
 | GitHub OIDC to AWS | LIVE VERIFIED | Workflows assume role without static keys | CD run [34370805611](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34370805611): `sts get-caller-identity` = `arn:aws:sts::912415493331:assumed-role/cloudops-prod-github-deploy/GitHubActions`. No `AWS_ACCESS_KEY_ID`. Trust `sub` includes GitHub owner/repo IDs. |
 | AWS Secrets Manager | PLANNED / MAY OMIT | Only if a real secret is required | Intentionally avoided unless necessary |
@@ -48,14 +48,14 @@ This remains a portfolio project. It is not professional work experience.
 
 | Claim | Status | Evidence required | Current evidence |
 | --- | --- | --- | --- |
-| Terraform | LIVE VERIFIED | `plan`/`apply` of the intended stack | First bootstrap apply 2026-09-09: `34 added, 0 changed, 0 destroyed` in `eu-west-1`. Local gitignored state; 34 managed resources. GitHub apply must stay disabled until remote state exists. |
+| Terraform | LIVE VERIFIED | `plan`/`apply` of the intended stack | First bootstrap apply 2026-09-09: `34 added, 0 changed, 0 destroyed` in `eu-west-1`. Retry compute apply 2026-09-09: `6 added, 1 changed, 0 destroyed` (Lambda/API integration created; runtime init failure prevents workload LIVE VERIFICATION). Local gitignored state; GitHub apply stays disabled until remote state exists. |
 | GitHub Actions CI | LIVE VERIFIED | Successful workflow runs on the repo | [ci run 34370805926](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34370805926) on `ubuntu-24.04`: go-quality, angular-quality, terraform-validate, trivy-and-sbom, cypress-local, linux-container all success. |
 | GitHub Actions CD | LIVE VERIFIED | OIDC + immutable ECR push from main | [cd run 34370805611](https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34370805611) assumed deploy role, pushed `sha-c22171c…`. GitHub `terraform apply` remains disabled (local state). |
 | Trivy scanning | LIVE VERIFIED | Workflow step that can fail the build | CI fs + Terraform config + HTTP/Lambda image CRITICAL gate on run 34370805926. Documented IaC ignore: AWS-0011 (no WAF), AWS-0132 (SSE-S3 not CMK). |
 | Syft SBOM | LIVE VERIFIED | Generated artifact attached to release/build | `anchore/sbom-action` uploaded `cloudops-sbom.spdx.json` (CI) and `cloudops-lambda-sbom.spdx.json` (CD). |
-| Cosign keyless signing | IMPLEMENTED | Signed ECR image verified in CI | `cosign sign` ran; `cosign verify` failed (`ecr:GetDownloadUrlForLayer` denied). Not LIVE VERIFIED. |
-| Linux | LIVE VERIFIED | Real Ubuntu CI + Linux OCI image | Runner `Ubuntu 24.04.4 LTS x86_64`. HTTP image `os=linux arch=amd64 user=65532:65532` + SIGTERM. Lambda image `user=1000:1000`. Not LIVE VERIFIED as Lambda runtime. |
-| Docker / OCI containers | LIVE VERIFIED | Multi-stage image, non-root, digest identity | ECR `cloudops-prod-api@sha256:08ab57825cc1f43a1527ad474f20a146e8f55dacb2c49323f42601129efa1a53`. |
+| Cosign keyless signing | IMPLEMENTED | Signed ECR image verified in CI | Prior verify failed (`ecr:GetDownloadUrlForLayer`). Permission now present; re-verify pending corrected image. Not LIVE VERIFIED. |
+| Linux | IMPLEMENTED | Real Ubuntu CI + Linux OCI image | Runner `Ubuntu 24.04` x86_64. HTTP image non-root + SIGTERM. Lambda `provided.al2023` + `/var/task/bootstrap` in source. AWS Lambda runtime execution not LIVE VERIFIED until corrected digest is applied. |
+| Docker / OCI containers | LIVE VERIFIED | Multi-stage image, non-root, digest identity | ECR historical `cloudops-prod-api@sha256:08ab5782…` (broken entrypoint). Corrected digest pending. |
 | Open Policy Agent / Rego | TESTED | Policies execute against real release input | `policies/release_gate.rego` evaluated in-process via opa/v1/rego. Local only. |
 
 ## Product capabilities
