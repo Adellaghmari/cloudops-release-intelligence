@@ -186,6 +186,14 @@ resource "aws_iam_role_policy_attachment" "github_plan" {
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
 
+# Apply/deploy role: ReadOnlyAccess so Terraform refresh/plan inside the gated
+# apply job can read the full stack. Scoped deploy writes remain in the inline
+# "deploy" policy. This is broad read compatibility — not fully least privilege.
+resource "aws_iam_role_policy_attachment" "github_deploy_readonly" {
+  role       = aws_iam_role.github_deploy.name
+  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
+
 data "aws_iam_policy_document" "lambda_assume" {
   statement {
     actions = ["sts:AssumeRole"]
