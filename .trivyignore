@@ -1,0 +1,7 @@
+# Documented Trivy misconfiguration exceptions. These are not silent suppressions.
+# AWS-0011: CloudFront WAF is intentionally omitted; portfolio cost model uses
+#           PriceClass_100 and API Gateway throttling instead.
+AWS-0011
+# AWS-0132: S3 uses SSE-S3 AES256. A KMS CMK would add idle cost and is not required
+#           for this public demo origin / raw-evidence bucket.
+AWS-0132

@@ -34,8 +34,9 @@ data "aws_iam_policy_document" "github_assume" {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
-        "repo:${local.github_repo_full}:ref:refs/heads/main",
-        "repo:${local.github_repo_full}:environment:prod",
+        # GitHub now embeds owner/repo numeric IDs in the sub claim.
+        "repo:${local.github_repo_full_oidc}:ref:refs/heads/main",
+        "repo:${local.github_repo_full_oidc}:environment:prod",
       ]
     }
   }
@@ -56,7 +57,7 @@ data "aws_iam_policy_document" "github_plan_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${local.github_repo_full}:*"]
+      values   = ["repo:${local.github_repo_full_oidc}:*"]
     }
   }
 }

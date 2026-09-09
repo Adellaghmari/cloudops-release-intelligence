@@ -23,6 +23,7 @@ infra/plan-raw.txt
 infra/apply-output.txt
 infra/apply-raw.txt
 infra/tfplan-compute
+infra/tfplan-oidc
 
 # Go
 bin/

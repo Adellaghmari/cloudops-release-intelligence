@@ -80,6 +80,7 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: "1"
           ignore-unfixed: true
+          trivyignores: .trivyignore
       - name: Syft SBOM
         uses: anchore/sbom-action@v0
         with:
