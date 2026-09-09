@@ -1,7 +1,7 @@
-# Draft: GitHub Terraform plan (Phase 16B — enable after remote state migration)
+# GitHub Terraform plan/apply — gated until remote state is ready.
 #
-# APPLY REMAINS DISABLED until remote S3 state + lockfile are proven.
-# This file is the intended delivery shape; do not set ENABLE_TERRAFORM_APPLY=true yet.
+# APPLY remains DISABLED unless ENABLE_TERRAFORM_APPLY=true AND workflow_dispatch.
+# Do not use pull_request_target. Fork PRs never get AWS credentials.
 
 name: terraform
 
@@ -32,11 +32,34 @@ env:
   TF_IN_AUTOMATION: "true"
 
 jobs:
+  fmt-validate:
+    name: terraform-fmt-validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+      - name: Fmt / init / validate (no AWS)
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive
+          terraform init -backend=false -input=false
+          terraform validate
+
   plan:
     name: terraform-plan
     runs-on: ubuntu-latest
-    # Disabled until Phase 16B remote-state migration sets this variable.
-    if: vars.TERRAFORM_REMOTE_STATE_READY == 'true' && vars.AWS_PLAN_ROLE_ARN != ''
+    needs: [fmt-validate]
+    # Remote state ready + plan role + never give AWS creds to fork PR code.
+    if: >
+      vars.TERRAFORM_REMOTE_STATE_READY == 'true' &&
+      vars.AWS_PLAN_ROLE_ARN != '' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     defaults:
       run:
         working-directory: infra
@@ -50,14 +73,11 @@ jobs:
           role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           audience: sts.amazonaws.com
-      - name: Fmt / init / validate / plan
+      - name: Init / plan against remote state
         run: |
           set -euo pipefail
-          terraform fmt -check -recursive
           terraform init -input=false
-          terraform validate
-          terraform plan -input=false -no-color -out=tfplan-ci
-        # Do not upload tfplan artifacts containing sensitive values to public forks.
+          terraform plan -input=false -no-color
 
   apply:
     name: terraform-apply
@@ -67,7 +87,8 @@ jobs:
       github.event_name == 'workflow_dispatch' &&
       inputs.apply == true &&
       vars.ENABLE_TERRAFORM_APPLY == 'true' &&
-      vars.AWS_DEPLOY_ROLE_ARN != ''
+      vars.AWS_DEPLOY_ROLE_ARN != '' &&
+      vars.TERRAFORM_REMOTE_STATE_READY == 'true'
     environment: prod
     defaults:
       run:
@@ -82,7 +103,8 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           audience: sts.amazonaws.com
-      - name: Apply is still intentionally blocked in Phase 16A
+      - name: Apply remains gated
         run: |
-          echo "Remote-state migration and ENABLE_TERRAFORM_APPLY must be completed in Phase 16B."
+          echo "ENABLE_TERRAFORM_APPLY is set, but Phase 16B Part 1 does not authorize apply from CI yet."
+          echo "Use a later reviewed Part 2 / completion gate before production apply from GitHub."
           exit 1

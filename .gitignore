@@ -32,10 +32,13 @@ infra/tfplan-runtime-fix*
 infra/tfplan-dynamodb*
 infra/tfplan-cloudfront*
 infra/tfplan-hardening*
+infra/plan-hardening*
 infra/bootstrap/tfplan*
 infra/bootstrap/plan-*.txt
+infra/bootstrap/apply-*.txt
 infra/bootstrap/.terraform/
 infra/state-backups/
+
 
 
 

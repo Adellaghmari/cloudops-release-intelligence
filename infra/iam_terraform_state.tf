@@ -11,7 +11,7 @@ locals {
   terraform_state_lock    = "${var.terraform_state_key}.tflock"
 }
 
-# Plan role: read state object; full lockfile acquire/release; no DeleteObject on state.
+# Plan role: Get+Put state object (Terraform S3 backend); full lockfile; no DeleteObject on state.
 data "aws_iam_policy_document" "github_plan_terraform_state" {
   count = local.terraform_state_enabled ? 1 : 0
 
@@ -31,8 +31,11 @@ data "aws_iam_policy_document" "github_plan_terraform_state" {
   }
 
   statement {
-    sid       = "StateObjectRead"
-    actions   = ["s3:GetObject"]
+    sid = "StateObjectReadWrite"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+    ]
     resources = ["${var.terraform_state_bucket_arn}/${local.terraform_state_key}"]
   }
 
