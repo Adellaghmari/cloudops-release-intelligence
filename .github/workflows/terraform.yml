@@ -65,9 +65,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [fmt-validate]
     # Remote state ready + plan role + never give AWS creds to fork PR code.
+    # Skip parallel plan during controlled apply to avoid S3 lock contention
+    # (apply job generates its own same-job plan).
     if: >
       vars.TERRAFORM_REMOTE_STATE_READY == 'true' &&
       vars.AWS_PLAN_ROLE_ARN != '' &&
+      !(github.event_name == 'workflow_dispatch' && inputs.apply == true) &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name == github.repository)
     defaults:
