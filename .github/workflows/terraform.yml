@@ -30,6 +30,12 @@ permissions:
 env:
   AWS_REGION: eu-west-1
   TF_IN_AUTOMATION: "true"
+  # Non-secret operational inputs (gitignored locally as terraform.tfvars).
+  TF_VAR_api_image_uri: ${{ vars.TF_VAR_API_IMAGE_URI }}
+  TF_VAR_budget_notification_email: ${{ vars.TF_VAR_BUDGET_NOTIFICATION_EMAIL }}
+  TF_VAR_terraform_state_bucket_arn: ${{ vars.TF_VAR_TERRAFORM_STATE_BUCKET_ARN }}
+  TF_VAR_terraform_state_bucket_name: ${{ vars.TF_VAR_TERRAFORM_STATE_BUCKET_NAME }}
+  TF_VAR_terraform_state_key: ${{ vars.TF_VAR_TERRAFORM_STATE_KEY }}
 
 jobs:
   fmt-validate:
@@ -73,11 +79,21 @@ jobs:
           role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           audience: sts.amazonaws.com
+      - name: Prove plan-role OIDC assumption
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity
+          aws sts get-caller-identity --query Arn --output text | grep -q 'assumed-role/cloudops-prod-github-plan/'
       - name: Init / plan against remote state
         run: |
           set -euo pipefail
+          test -n "${TF_VAR_api_image_uri:-}"
+          test -n "${TF_VAR_budget_notification_email:-}"
+          test -n "${TF_VAR_terraform_state_bucket_arn:-}"
           terraform init -input=false
-          terraform plan -input=false -no-color
+          terraform fmt -check -recursive
+          terraform validate
+          terraform plan -input=false -no-color -lock=true
 
   apply:
     name: terraform-apply
