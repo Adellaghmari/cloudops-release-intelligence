@@ -21,13 +21,17 @@ type readyResponse struct {
 }
 
 type serviceJSON struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description,omitempty"`
-	Criticality string    `json:"criticality"`
-	Source      string    `json:"source"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID              string    `json:"id"`
+	Name            string    `json:"name"`
+	Description     string    `json:"description,omitempty"`
+	Criticality     string    `json:"criticality"`
+	Source          string    `json:"source"`
+	DependsOnCount  int       `json:"depends_on_count,omitempty"`
+	DependedByCount int       `json:"depended_by_count,omitempty"`
+	ReleaseCount    int       `json:"release_count,omitempty"`
+	LatestReleaseID string    `json:"latest_release_id,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type dependencyJSON struct {
@@ -86,13 +90,43 @@ type serviceListResponse struct {
 }
 
 type serviceDetailResponse struct {
-	Service    serviceJSON      `json:"service"`
-	DependsOn  []dependencyJSON `json:"depends_on"`
-	DependedBy []dependencyJSON `json:"depended_by"`
+	Service         serviceJSON      `json:"service"`
+	DependsOn       []dependencyJSON `json:"depends_on"`
+	DependedBy      []dependencyJSON `json:"depended_by"`
+	RelatedReleases []releaseJSON    `json:"related_releases"`
 }
 
 type releaseListResponse struct {
 	Releases []releaseJSON `json:"releases"`
+}
+
+type releaseSummaryJSON struct {
+	ReleaseID         string    `json:"release_id"`
+	ServiceID         string    `json:"service_id"`
+	ServiceName       string    `json:"service_name"`
+	Version           string    `json:"version"`
+	Scenario          string    `json:"scenario,omitempty"`
+	Source            string    `json:"source"`
+	Status            string    `json:"status"`
+	RiskScore         int       `json:"risk_score"`
+	RiskCategory      string    `json:"risk_category"`
+	HealthOverall     string    `json:"health_overall"`
+	HealthCorrelation string    `json:"health_correlation"`
+	PolicyResult      string    `json:"policy_result"`
+	RollbackStatus    string    `json:"rollback_status"`
+	DirectDependents  int       `json:"direct_dependents"`
+	TransitiveImpact  int       `json:"transitive_impact"`
+	IncidentCount     int       `json:"incident_count"`
+	AttentionLevel    string    `json:"attention_level"`
+	AttentionReasons  []string  `json:"attention_reasons"`
+	CreatedAt         time.Time `json:"created_at"`
+}
+
+type overviewResponse struct {
+	AttentionReleaseID string               `json:"attention_release_id,omitempty"`
+	LiveServices       int                  `json:"live_services"`
+	SyntheticServices  int                  `json:"synthetic_services"`
+	Releases           []releaseSummaryJSON `json:"releases"`
 }
 
 type riskFactorJSON struct {

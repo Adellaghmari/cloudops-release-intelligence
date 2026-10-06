@@ -50,6 +50,10 @@ output "github_plan_role_arn" {
   value = aws_iam_role.github_plan.arn
 }
 
+output "github_evidence_producer_role_arn" {
+  value = local.deploy_compute ? aws_iam_role.github_evidence_producer[0].arn : null
+}
+
 output "lambda_api_name" {
   value = local.deploy_compute ? aws_lambda_function.api[0].function_name : null
 }

@@ -11,9 +11,9 @@ import { DataSource } from '../core/models';
     }
   `,
   styles: `
-    .badge { font-size: 0.68rem; letter-spacing: 0.04em; padding: 0.15rem 0.4rem; }
-    .live { background: #1f3d32; color: #8ee0c0; }
-    .synthetic { background: #3a2d12; color: #e4c56b; }
+    .badge { border-radius: 999px; font-size: 0.62rem; letter-spacing: 0.075em; padding: 0.2rem 0.52rem; }
+    .live { border-color: color-mix(in srgb, var(--live), transparent 56%); background: color-mix(in srgb, var(--live), transparent 89%); color: #8bdacc; }
+    .synthetic { border-color: color-mix(in srgb, var(--synthetic), transparent 55%); background: color-mix(in srgb, var(--synthetic), transparent 89%); color: #e4c679; }
   `,
 })
 export class SourceBadge {

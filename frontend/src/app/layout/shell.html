@@ -1,30 +1,42 @@
 <div class="shell">
   <aside class="nav" aria-label="Primary">
     <a class="brand" routerLink="/">
-      <span class="mark">CR</span>
-      <span>
+      <span class="mark" aria-hidden="true"><span>CR</span></span>
+      <span class="brand-copy">
         <strong>CloudOps</strong>
         <small>Release Intelligence</small>
       </span>
     </a>
-    <p class="tag">Change. Risk. Impact. Recovery.</p>
-    <p class="aside-note thesis">Release Causality Engine</p>
+    <div class="brand-thesis">
+      <p class="tag">Change. Risk. Impact. Recovery.</p>
+      <p class="aside-note thesis">Release decision support</p>
+    </div>
     <nav>
-      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Operations Overview</a>
-      <a routerLink="/releases" routerLinkActive="active">Releases</a>
-      <a routerLink="/replay" routerLinkActive="active">Release Replay</a>
-      <a routerLink="/services" routerLinkActive="active">Services</a>
-      <a routerLink="/architecture" routerLinkActive="active">Architecture</a>
-      <a routerLink="/status" routerLinkActive="active">System Status</a>
+      <p class="nav-label">Investigate</p>
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"><span class="nav-code">OV</span><span>Operations</span></a>
+      <a routerLink="/releases" routerLinkActive="active"><span class="nav-code">RL</span><span>Releases</span></a>
+      <a routerLink="/replay" routerLinkActive="active"><span class="nav-code">RP</span><span>Release Replay</span></a>
+      <a routerLink="/services" routerLinkActive="active"><span class="nav-code">SV</span><span>Services</span></a>
+      <p class="nav-label">System</p>
+      <a class="system-link" routerLink="/architecture" routerLinkActive="active"><span class="nav-code">AR</span><span>Architecture</span></a>
+      <a class="system-link" routerLink="/status" routerLinkActive="active"><span class="nav-code">ST</span><span>System Status</span></a>
     </nav>
-    <p class="aside-note">Northstar Commerce data is labeled SYNTHETIC DEMO. Live Project B evidence is labeled LIVE PROJECT DATA.</p>
+    <div class="source-disclosure">
+      <span><i class="source-dot synthetic"></i>Synthetic demo</span>
+      <span><i class="source-dot live"></i>Live project data</span>
+      <p>Every evidence surface preserves its source.</p>
+    </div>
   </aside>
   <div class="main">
     <header class="top">
-      <p class="lede">
-        Most deployment tools tell you what shipped. This Release Causality Engine connects change to
-        risk, service health, potential impact, policy gates, rollback readiness and recovery evidence.
-      </p>
+      <div class="top-context">
+        <span class="context-label">Release intelligence command center</span>
+        <p class="lede">Evidence for the human decision after “deployed”.</p>
+      </div>
+      <div class="top-meta" aria-label="Product characteristics">
+        <span><i></i>Evidence connected</span>
+        <span>Deterministic analysis</span>
+      </div>
     </header>
     <main id="content">
       <router-outlet />

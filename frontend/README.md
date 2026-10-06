@@ -1,59 +1,27 @@
-# Frontend
+# CloudOps web
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.23.
+Angular 21 release-intelligence console for CloudOps Release Intelligence.
 
-## Development server
+The browser consumes real backend contracts through `/api/v1`; it does not calculate final verdicts or present fixture JSON as API data. Northstar Commerce is always labeled **SYNTHETIC DEMO**. Verified evidence from this repository may be labeled **LIVE PROJECT DATA**.
 
-To start a local development server, run:
+## Local development
 
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Start the Go API on port 8080, then:
 
 ```bash
-ng generate component component-name
+npm ci
+npm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+The Angular dev server opens on `http://localhost:4200` and proxies `/api` to `http://localhost:8080`.
+
+## Verification
 
 ```bash
-ng generate --help
+npm run lint
+npm test
+npm run build
+npm run e2e
 ```
 
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Unit tests use Vitest. The Cypress suite covers the recruiter flow and requires a Cypress executable already available in the machine cache. The production bundle is written to `dist/frontend`.

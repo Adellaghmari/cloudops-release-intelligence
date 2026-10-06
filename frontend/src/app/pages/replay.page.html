@@ -1,38 +1,101 @@
-<h1>Release Replay</h1>
-<p class="muted">Compare two persisted Northstar releases. Differences are computed from real engine outputs, not invented.</p>
-
 @if (vm$ | async; as vm) {
-  <div class="facts">
-    <label>Release A
-      <select [formControl]="a">
-        @for (rel of vm.releases; track rel.id) {
-          <option [value]="rel.id">{{ rel.scenario || rel.version }} · {{ rel.id }}</option>
-        }
-      </select>
-    </label>
-    <label>Release B
-      <select [formControl]="b">
-        @for (rel of vm.releases; track rel.id) {
-          <option [value]="rel.id">{{ rel.scenario || rel.version }} · {{ rel.id }}</option>
-        }
-      </select>
-    </label>
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Deterministic release comparison</p>
+      <h1>Release Replay</h1>
+      <p class="page-intro">Compare persisted release evidence across change, risk, health, impact, policy and recovery. No values are invented in the browser.</p>
+    </div>
   </div>
-  @if (vm.state === 'error') {
-    <p class="error" role="alert">{{ vm.error }}</p>
+
+  @if (vm.releases.length > 0) {
+    <section class="replay-controls" aria-label="Release comparison controls">
+      <label class="selector-a"><span class="selector-label"><b>A</b> Baseline release</span>
+        <select [formControl]="a">
+          @for (release of vm.releases; track release.id) {
+            <option [value]="release.id">{{ release.scenario ? (release.scenario | displayLabel) : release.version }} · {{ release.id }}</option>
+          }
+        </select>
+      </label>
+      <span class="versus" aria-hidden="true">→</span>
+      <label class="selector-b"><span class="selector-label"><b>B</b> Comparison release</span>
+        <select [formControl]="b">
+          @for (release of vm.releases; track release.id) {
+            <option [value]="release.id">{{ release.scenario ? (release.scenario | displayLabel) : release.version }} · {{ release.id }}</option>
+          }
+        </select>
+      </label>
+      <label class="toggle-control">
+        <input type="checkbox" [formControl]="changedOnly" />
+        <span>Changed evidence only</span>
+      </label>
+    </section>
+  }
+
+  @if (vm.state === 'loading') {
+    <section class="loading-state compact" role="status">
+      <span class="loading-mark"></span>
+      <div><h2>Computing comparison</h2><p>Replaying deterministic engine outputs…</p></div>
+    </section>
+  } @else if (vm.state === 'error' && vm.error) {
+    <app-error-state
+      [title]="vm.error.title"
+      [message]="vm.error.message"
+      [code]="vm.error.code"
+      [requestId]="vm.error.requestId"
+      (retry)="retry()"
+    />
+  } @else if (vm.releases.length === 0) {
+    <section class="empty-state">
+      <h2>No synthetic releases available</h2>
+      <p>Replay needs at least one persisted release before a comparison can be computed.</p>
+    </section>
+  } @else if (vm.sameRelease) {
+    <section class="same-release-state">
+      <p class="eyebrow">Same release selected</p>
+      <h2>No differences expected</h2>
+      <p>Release A and Release B both reference <span class="mono">{{ vm.diff?.a }}</span>. Choose another release to inspect a meaningful delta.</p>
+    </section>
   } @else if (vm.diff) {
-    <table>
-      <thead><tr><th>Field</th><th>A</th><th>B</th><th>Delta</th></tr></thead>
-      <tbody>
-        @for (f of vm.diff.fields; track f.path) {
-          <tr>
-            <td class="mono">{{ f.path }}</td>
-            <td>{{ f.a }}</td>
-            <td>{{ f.b }}</td>
-            <td>{{ f.kind }}</td>
-          </tr>
+    <section class="replay-summary">
+      <div>
+        <p class="eyebrow">Comparison summary</p>
+        <h2>{{ vm.changedCount }} evidence fields changed</h2>
+        <p class="comparison-route"><span class="mono">{{ vm.diff.a }}</span><i>→</i><span class="mono">{{ vm.diff.b }}</span></p>
+      </div>
+      <div class="chip-row">
+        @for (group of vm.groups; track group.name) {
+          <span class="status-chip">{{ group.name }} · {{ group.fields.length }}</span>
         }
-      </tbody>
-    </table>
+      </div>
+    </section>
+
+    <div class="replay-groups">
+      @for (group of vm.groups; track group.name) {
+        <section class="replay-group">
+          <div class="replay-group-heading">
+            <div><p class="eyebrow">Evidence domain</p><h2>{{ group.name }}</h2></div>
+            <span>{{ group.fields.length }} fields</span>
+          </div>
+          <div class="comparison-list">
+            @for (field of group.fields; track field.path) {
+              <article class="comparison-row" [class.changed]="field.kind !== 'unchanged'">
+                <div class="comparison-field">
+                  <strong>{{ field.path.split('.')[1] | displayLabel }}</strong>
+                  <small class="mono">{{ field.path }}</small>
+                </div>
+                <div class="comparison-value value-a"><span class="comparison-label">Release A</span><span>{{ field.a }}</span></div>
+                <div class="comparison-value value-b"><span class="comparison-label">Release B</span><span>{{ field.b }}</span></div>
+                <span class="status-chip" [attr.data-state]="field.kind">{{ field.kind | displayLabel }}</span>
+              </article>
+            }
+          </div>
+        </section>
+      } @empty {
+        <section class="empty-state">
+          <h2>No changed evidence</h2>
+          <p>These releases have no differences under the current filter. Turn off “Changed evidence only” to inspect every field.</p>
+        </section>
+      }
+    </div>
   }
 }

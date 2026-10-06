@@ -17,7 +17,8 @@ GitHub now embeds numeric owner/repo IDs in the `sub` claim (observed 2026-09-09
 | Role | Trust | Use |
 | --- | --- | --- |
 | `cloudops-prod-github-deploy` | that `sub` for `main`, and `:environment:prod` | Push ECR, update Lambda, sync S3 |
-| `cloudops-prod-github-plan` | `sub` = the ID-qualified repo `*` | Read-only plan from pull requests |
+| `cloudops-prod-github-plan` | ID-qualified `main` and same-repository pull-request subjects | Read-only Terraform plan |
+| `cloudops-prod-github-evidence-producer` | exact ID-qualified `main` subject | Invoke only `POST /api/v1/events` on the CloudOps API |
 
 ## Why this is safer than stored access keys
 
@@ -27,4 +28,6 @@ A static access key is a long-lived secret. Anyone who copies it can call AWS un
 
 OIDC is **LIVE VERIFIED**. CD run https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34370805611 called `aws sts get-caller-identity` and received `arn:aws:sts::912415493331:assumed-role/cloudops-prod-github-deploy/GitHubActions`.
 
-GitHub `terraform apply` remains disabled while state is local (`ENABLE_TERRAFORM_APPLY` is unset).
+Remote encrypted S3 state and its native lockfile are LIVE VERIFIED. GitHub `terraform apply` remains disabled by design (`ENABLE_TERRAFORM_APPLY=false`).
+
+The evidence-producer trust policy and signed workflow are **IMPLEMENTED LOCALLY, NOT YET DEPLOYED OR LIVE VERIFIED**. They use short-lived OIDC credentials and SigV4; no static AWS key or browser secret is introduced.

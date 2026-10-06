@@ -1,24 +1,46 @@
 describe('Recruiter local workflow', () => {
-  it('shows operations overview and a synthetic release decision surface', () => {
+  it('moves from attention to evidence, services and semantic replay', () => {
     cy.visit('/');
     cy.contains('CloudOps');
     cy.contains('Change. Risk. Impact. Recovery.');
-    cy.contains('Release Causality Engine');
+    cy.contains('Release decision support');
+    cy.contains('Needs investigation');
     cy.contains('SYNTHETIC DEMO');
-    cy.contains('System Status');
-    cy.contains('a', 'Releases').click();
-    cy.contains('SAFE_RELEASE');
-    cy.contains('a', 'rel_northstar_payments_demo').click();
+    cy.contains('a', 'Investigate release').click();
+    cy.contains('Decision brief');
+    cy.contains('No human release decision is recorded');
+
+    cy.contains('a', 'Health').click();
+    cy.location('hash').should('eq', '#health');
+    cy.get('#health').should('be.visible');
+    cy.contains('a', 'Impact').click();
+    cy.location('hash').should('eq', '#impact');
+    cy.get('#impact').should('be.visible');
+    cy.contains('a', 'Policy').click();
+    cy.location('hash').should('eq', '#policy');
+    cy.contains('a', 'Rollback').click();
+    cy.location('hash').should('eq', '#rollback');
+    cy.contains('a', 'Timeline').click();
+    cy.location('hash').should('eq', '#timeline');
+
+    cy.contains('a', 'Compare release').first().click();
+    cy.contains('Release Replay');
+    cy.get('select').eq(1).select('rel_northstar_payments_demo');
+    cy.contains('Comparison summary');
     cy.contains('Risk');
     cy.contains('Health');
-    cy.contains('Potential impact');
-    cy.contains('Policy');
-    cy.contains('Rollback');
-    cy.contains('Timeline');
-    cy.contains('Release risk signal, not a probability of failure.');
-    cy.contains('a', 'Replay').click();
-    cy.contains('Release Replay');
-    cy.contains('risk.score');
+    cy.contains('Recovery');
+    cy.contains('Changed only').click();
+
+    cy.contains('a', 'Services').click();
+    cy.contains('Change impact catalog');
+    cy.contains('a', 'Explore relationships').first().click();
+    cy.contains('Related releases');
+
+    cy.visit('/architecture');
+    cy.contains('Verified architecture');
+    cy.contains('Release Risk');
+    cy.contains('Data contract');
   });
 });
 

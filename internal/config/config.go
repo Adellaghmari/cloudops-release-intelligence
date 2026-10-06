@@ -27,6 +27,8 @@ type Config struct {
 	RawEvidenceBucket string
 	GitSHA            string
 	EnsureDynamoTable bool
+	AllowEventIngest  bool
+	AllowDemoReset    bool
 }
 
 func Load() (Config, error) {
@@ -48,6 +50,8 @@ func Load() (Config, error) {
 		RawEvidenceBucket: getenv("S3_RAW_EVENTS_BUCKET", ""),
 		GitSHA:            getenv("GIT_SHA", ""),
 		EnsureDynamoTable: getenv("APP_DDB_ENSURE_TABLE", "") == "true" || getenv("APP_DDB_ENSURE_TABLE", "") == "1",
+		AllowEventIngest:  true,
+		AllowDemoReset:    true,
 	}
 	if cfg.DynamoEndpoint != "" {
 		cfg.EnsureDynamoTable = true
@@ -64,6 +68,14 @@ func Load() (Config, error) {
 	}
 	if cfg.Env != "local" {
 		cfg.SeedLocalData = getenv("APP_SEED_LOCAL", "") == "true" || os.Getenv("APP_SEED_LOCAL") == "1"
+		cfg.AllowEventIngest = false
+		cfg.AllowDemoReset = false
+	}
+	if v := os.Getenv("APP_ALLOW_EVENT_INGEST"); v != "" {
+		cfg.AllowEventIngest = v == "1" || strings.EqualFold(v, "true")
+	}
+	if v := os.Getenv("APP_ALLOW_DEMO_RESET"); v != "" {
+		cfg.AllowDemoReset = v == "1" || strings.EqualFold(v, "true")
 	}
 	origins := getenv("APP_CORS_ORIGINS", "http://localhost:4200")
 	for _, part := range strings.Split(origins, ",") {

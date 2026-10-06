@@ -38,7 +38,7 @@ First `fulfillment-api` release: no previous successful release and no artifact/
 
 ## Demo reset
 
-`POST /api/v1/demo/reset` is still PLANNED. Locally, restarting `go run ./cmd/api` reseeds the memory store.
+In explicit local mode, `POST /api/v1/demo/reset` reloads only the bounded Northstar synthetic dataset and is rate limited in-process. Locally, restarting `go run ./cmd/api` also reseeds the memory store. The production application disables reset and API Gateway requires IAM authorization; it is not an anonymous public mutation.
 
 ## Recruiter path
 
