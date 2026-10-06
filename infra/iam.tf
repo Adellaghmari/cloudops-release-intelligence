@@ -98,9 +98,10 @@ resource "aws_iam_role" "github_plan" {
 }
 
 resource "aws_iam_role" "github_evidence_producer" {
-  count              = local.deploy_compute ? 1 : 0
-  name               = "${local.name_prefix}-github-evidence-producer"
-  assume_role_policy = data.aws_iam_policy_document.github_evidence_producer_assume.json
+  count                = local.deploy_compute ? 1 : 0
+  name                 = "${local.name_prefix}-github-evidence-producer"
+  assume_role_policy   = data.aws_iam_policy_document.github_evidence_producer_assume.json
+  permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${local.name_prefix}-evidence-producer-boundary"
 }
 
 # Portfolio-grade deploy policy: Resource:"*" only where AWS requires it
@@ -130,10 +131,8 @@ data "aws_iam_policy_document" "github_deploy" {
   }
 
   statement {
-    sid = "LambdaDeploy"
+    sid = "LambdaReleaseVerification"
     actions = [
-      "lambda:UpdateFunctionCode",
-      "lambda:UpdateFunctionConfiguration",
       "lambda:GetFunction",
       "lambda:GetFunctionConfiguration",
     ]
@@ -208,16 +207,14 @@ resource "aws_iam_role_policy" "github_evidence_producer" {
   policy = data.aws_iam_policy_document.github_evidence_producer[0].json
 }
 
-# Plan role: ReadOnlyAccess for refresh/plan, plus explicit S3 state RW/lock
-# placeholders for Phase 16B remote-state migration (no state bucket in this stack).
+# Plan role: ReadOnlyAccess for refresh/plan, plus exact state read and lock access.
 resource "aws_iam_role_policy_attachment" "github_plan" {
   role       = aws_iam_role.github_plan.name
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
 
-# Apply/deploy role: ReadOnlyAccess so Terraform refresh/plan inside the gated
-# apply job can read the full stack. Scoped deploy writes remain in the inline
-# "deploy" policy. This is broad read compatibility — not fully least privilege.
+# Application deploy role: broad read compatibility for release verification.
+# Scoped ECR, frontend, and invalidation writes remain in the inline policy.
 resource "aws_iam_role_policy_attachment" "github_deploy_readonly" {
   role       = aws_iam_role.github_deploy.name
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
