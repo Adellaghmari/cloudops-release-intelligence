@@ -50,7 +50,7 @@ No LLMs. No vector databases. "Intelligence" here means deterministic operationa
 
 ## Current status
 
-**PROJECT B COMPLETE.** Public AWS demo is live. Remote Terraform state, GitHub OIDC plan, and a controlled no-op GitHub Terraform apply are LIVE VERIFIED. Production apply remains gated off (`ENABLE_TERRAFORM_APPLY=false`) until a future maintenance window.
+**PROJECT B COMPLETE.** Public AWS demo is live. Remote Terraform state, GitHub OIDC planning, the bounded production Terraform role, and the protected `prod` approval environment are LIVE VERIFIED. PR #1 implements immutable candidate publication and exact saved-plan release orchestration. No product infrastructure apply or application release has occurred yet.
 
 Public demo: [https://d34fwrlm14h6js.cloudfront.net](https://d34fwrlm14h6js.cloudfront.net)
 
@@ -139,7 +139,7 @@ Target idle cost is a few dollars per month. Serverless on-demand services only 
 ## Known limitations
 
 - Default CloudFront hostname uses AWS’s default certificate behavior (do not claim TLSv1.2_2021 without a custom domain + ACM).
-- GitHub plan/apply roles keep AWS managed ReadOnlyAccess for Terraform refresh — not fully least privilege.
+- The GitHub plan and application deploy roles retain AWS managed ReadOnlyAccess for compatibility; the production Terraform apply role has an independent scoped permission ceiling.
 - Public recruiter read APIs are intentionally unauthenticated. IAM-protected API Gateway ingestion and a dedicated GitHub OIDC producer role are **IMPLEMENTED AND LOCALLY VALIDATED, NOT YET DEPLOYED**; production remains unchanged until a reviewed Terraform apply and producer migration.
 - API Gateway HTTP API does not provide the standalone REST-API X-Ray segment; Lambda X-Ray remains LIVE VERIFIED.
 

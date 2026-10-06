@@ -11,7 +11,7 @@ locals {
   terraform_state_lock    = "${var.terraform_state_key}.tflock"
 }
 
-# Plan role: Get+Put state object (Terraform S3 backend); full lockfile; no DeleteObject on state.
+# Plan role: read state and acquire/release only the native lockfile.
 data "aws_iam_policy_document" "github_plan_terraform_state" {
   count = local.terraform_state_enabled ? 1 : 0
 
@@ -31,11 +31,8 @@ data "aws_iam_policy_document" "github_plan_terraform_state" {
   }
 
   statement {
-    sid = "StateObjectReadWrite"
-    actions = [
-      "s3:GetObject",
-      "s3:PutObject",
-    ]
+    sid       = "StateObjectReadOnly"
+    actions   = ["s3:GetObject"]
     resources = ["${var.terraform_state_bucket_arn}/${local.terraform_state_key}"]
   }
 
@@ -57,7 +54,7 @@ resource "aws_iam_role_policy" "github_plan_terraform_state" {
   policy = data.aws_iam_policy_document.github_plan_terraform_state[0].json
 }
 
-# Apply/deploy role: Get+Put state object (no DeleteObject on state); full lockfile.
+# Application deploy role: read-only state visibility retained for compatibility.
 data "aws_iam_policy_document" "github_deploy_terraform_state" {
   count = local.terraform_state_enabled ? 1 : 0
 
@@ -77,21 +74,14 @@ data "aws_iam_policy_document" "github_deploy_terraform_state" {
   }
 
   statement {
-    sid = "StateObjectReadWrite"
-    actions = [
-      "s3:GetObject",
-      "s3:PutObject",
-    ]
+    sid       = "StateObjectReadOnly"
+    actions   = ["s3:GetObject"]
     resources = ["${var.terraform_state_bucket_arn}/${local.terraform_state_key}"]
   }
 
   statement {
-    sid = "LockObjectAcquireRelease"
-    actions = [
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:DeleteObject",
-    ]
+    sid       = "LockObjectReadOnly"
+    actions   = ["s3:GetObject"]
     resources = ["${var.terraform_state_bucket_arn}/${local.terraform_state_lock}"]
   }
 }

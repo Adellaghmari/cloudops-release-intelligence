@@ -10,7 +10,18 @@ Main stack state is on **S3**:
 - `encrypt = true`
 - `use_lockfile = true`
 
-Bootstrap stack state remains **local** under `infra/bootstrap/terraform.tfstate` (intentional; backed up in gitignored `infra/state-backups/`).
+The original state-bucket foundation remains local under
+`infra/bootstrap/terraform.tfstate` (intentional; backed up in gitignored
+`infra/state-backups/`).
+
+The production release control plane uses the same encrypted bucket with a
+separate remote state key:
+
+`cloudops-release-intelligence/prod/account-bootstrap/terraform.tfstate`
+
+That stack owns only `cloudops-prod-terraform-apply`, its permission ceiling,
+scoped policies, and the evidence producer boundary. Its one-time human bootstrap
+is complete with zero drift.
 
 GitHub Terraform **plan** is LIVE VERIFIED (`TERRAFORM_REMOTE_STATE_READY=true`).  
 GitHub Terraform **controlled apply** is LIVE VERIFIED once (no-op), then the gate was re-disabled:
@@ -28,6 +39,7 @@ Pre-migration main backup (gitignored):
 | Stack | Owns |
 | --- | --- |
 | `infra/bootstrap/` | S3 state bucket + security only (BPA, versioning, SSE-S3, ownership, deny insecure transport) |
+| `infra/account-bootstrap/` | Production Terraform apply role, permission boundaries, and scoped release-control policies |
 | `infra/` (main) | Product infrastructure + GitHub OIDC roles + GitHub remote-state IAM policies |
 
 Bootstrap must **not** attach policies to main-stack IAM roles.
@@ -56,15 +68,21 @@ Gitignored vars / CI `TF_VAR_*` after bootstrap:
 - `terraform_state_bucket_name`
 - `terraform_state_key` (default matches backend key)
 
-**Plan + apply roles** (exact objects, verified in AWS):
+The GitHub plan role can list the exact state prefix, read the state object, and
+acquire or release only its native lock object. It cannot write or delete the
+state object.
 
-- `s3:ListBucket` with prefix condition
-- state object: `s3:GetObject` + `s3:PutObject` (**no** `DeleteObject`)
-- lock object `<key>.tflock`: Get/Put/Delete
+The application deploy role retains read only visibility of the exact state and
+lock objects for compatibility. It cannot write either object.
 
-Applied via `tfplan-hardening-16b-remote-1` (**2/2/0**), plus Part 3 `github_deploy_readonly` ReadOnlyAccess attachment for apply-job refresh.
+The separately bootstrapped `cloudops-prod-terraform-apply` role is the only
+GitHub identity allowed to update the main state object. Its state permissions
+are scoped to the exact main state key and lock object. The human bootstrap
+stack retains separate ownership of its own state.
 
-Plan **and** apply/deploy roles retain AWS managed `ReadOnlyAccess` for refresh compatibility until a tested replacement exists. No AdministratorAccess. Not fully least privilege while ReadOnlyAccess remains.
+Plan and application deploy roles retain AWS managed `ReadOnlyAccess` for
+refresh compatibility until a tested replacement exists. No role has
+AdministratorAccess.
 
 ## Locking
 

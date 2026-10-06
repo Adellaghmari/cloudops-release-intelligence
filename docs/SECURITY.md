@@ -69,9 +69,9 @@ Mitigations:
 ## Known limitations
 
 - The IAM routes, producer role and signed workflow are configured locally but are **not yet deployed**.
-- The GitHub variable `AWS_EVIDENCE_PRODUCER_ROLE_ARN` must be created only after the reviewed infrastructure apply.
+- The protected release derives the producer role ARN and API origin from the applied Terraform outputs; it stores no AWS credential or anonymous fallback.
 - Authentication cannot be called LIVE VERIFIED until an unsigned request is denied and a signed GitHub producer request succeeds in AWS.
-- GitHub plan/apply roles still use AWS managed ReadOnlyAccess for Terraform refresh and are not fully least privilege.
+- The GitHub plan and application deploy roles retain AWS managed ReadOnlyAccess for compatibility. The production Terraform apply role is separately bounded and scoped to CloudOps resources.
 - Cosign remains best-effort in the current workflow; do not describe signing as mandatory enforcement.
 
 See [CV_CLAIMS_MATRIX.md](../CV_CLAIMS_MATRIX.md) for verified claim boundaries.
