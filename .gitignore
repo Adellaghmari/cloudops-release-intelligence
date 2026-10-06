@@ -37,6 +37,9 @@ infra/bootstrap/tfplan*
 infra/bootstrap/plan-*.txt
 infra/bootstrap/apply-*.txt
 infra/bootstrap/.terraform/
+infra/account-bootstrap/*.tfplan
+infra/account-bootstrap/plan-*.txt
+infra/account-bootstrap/apply-*.txt
 infra/state-backups/
 
 
