@@ -1,30 +1,49 @@
-<h1>Services</h1>
 @if (vm$ | async; as vm) {
   @if (vm.state === 'loading') {
-    <p class="status" role="status">Loading services…</p>
-  } @else if (vm.state === 'error') {
-    <p class="error" role="alert">{{ vm.error }}</p>
+    <section class="loading-state" role="status">
+      <span class="loading-mark"></span>
+      <div><h1>Services</h1><p>Loading service relationships…</p></div>
+    </section>
+  } @else if (vm.state === 'error' && vm.error) {
+    <app-error-state
+      [title]="vm.error.title"
+      [message]="vm.error.message"
+      [code]="vm.error.code"
+      [requestId]="vm.error.requestId"
+      (retry)="retry()"
+    />
   } @else {
-    <table>
-      <thead>
-        <tr>
-          <th>Service</th>
-          <th>Criticality</th>
-          <th>Source</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (svc of vm.services; track svc.id) {
-          <tr>
-            <td>
-              <a [routerLink]="['/services', svc.id]">{{ svc.name }}</a>
-              <div class="mono muted">{{ svc.id }}</div>
-            </td>
-            <td>{{ svc.criticality }}</td>
-            <td><app-source-badge [source]="svc.source" /></td>
-          </tr>
-        }
-      </tbody>
-    </table>
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">Change impact catalog</p>
+        <h1>Services</h1>
+        <p class="page-intro">Explore runtime dependencies and the releases that can affect each service.</p>
+      </div>
+      <span class="index-note"><strong>{{ vm.services.length }}</strong> service identities</span>
+    </div>
+    <div class="service-grid">
+      @for (svc of vm.services; track svc.id) {
+        <article class="service-card">
+          <div class="chip-row">
+            <app-source-badge [source]="svc.source" />
+            <span class="status-chip" [attr.data-state]="svc.criticality">{{ svc.criticality | displayLabel }}</span>
+          </div>
+          <h2><a [routerLink]="['/services', svc.id]">{{ svc.name }}</a></h2>
+          <p class="mono muted">{{ svc.id }}</p>
+          <p>{{ svc.description }}</p>
+          <dl class="mini-facts">
+            <div><dt>Depends on</dt><dd>{{ svc.depends_on_count || 0 }}</dd></div>
+            <div><dt>Depended on by</dt><dd>{{ svc.depended_by_count || 0 }}</dd></div>
+            <div><dt>Releases</dt><dd>{{ svc.release_count || 0 }}</dd></div>
+          </dl>
+          <a class="button quiet" [routerLink]="['/services', svc.id]">Explore relationships <span aria-hidden="true">→</span></a>
+        </article>
+      } @empty {
+        <section class="empty-state">
+          <h2>No services recorded</h2>
+          <p>Service relationships will appear after the catalog has been ingested.</p>
+        </section>
+      }
+    </div>
   }
 }

@@ -7,7 +7,7 @@ Single region: `eu-west-1`.
 | Piece | Mechanism |
 | --- | --- |
 | Angular SPA | S3 + CloudFront, SHA-prefixed assets, `index.html` at origin root |
-| Go API | Lambda URL via API Gateway HTTP API, CloudFront `/api/*` behavior |
+| Go API | Lambda behind API Gateway HTTP API; the frontend uses the API Gateway URL directly in the public build |
 | Worker | SQS-triggered Lambda, same image different `CMD` |
 | Data | DynamoDB + S3 raw bucket |
 | Bus | EventBridge custom bus |
@@ -23,7 +23,7 @@ Immutable path:
 3. Terraform / AWS API updates Lambda code to that digest
 4. Frontend files uploaded under `web/<sha>/`; `index.html` rewritten to those hashed bundles
 5. Smoke tests hit the public URL
-6. Evidence event ingested for dogfood
+6. The workflow assumes the dedicated GitHub OIDC evidence-producer role and sends a SigV4-signed canonical event to the IAM-protected ingest route
 
 Rollback of **this** product is a Lambda code restore to the previous digest plus S3/CloudFront restore of the previous `index.html` set. The Rollback Readiness engine should eventually describe that for `cloudops-api` / `cloudops-web`.
 
@@ -51,11 +51,19 @@ infra/
 
 No deep module maze for one environment. No one 2,000-line `main.tf`.
 
-State: S3 backend + DynamoDB lock, created once by a bootstrap that is documented. Bootstrap is the only chicken-egg. Until AWS login exists, Terraform is written but not applied.
+State: encrypted S3 backend with the native S3 lockfile (`use_lockfile = true`), created once by a documented bootstrap. Remote state and a controlled no-op GitHub apply are verified; the production apply gate remains disabled.
 
 ## Local
 
-`go run ./cmd/api` + `ng serve` with proxy `/api` → `localhost:8080`. Worker can run as a goroutine in local mode or a second process polling a fake queue. Local mode must be explicit (`APP_ENV=local`) so production never silently no-ops AWS.
+`go run ./cmd/api` + `ng serve` with proxy `/api` → `localhost:8080`. `APP_ENV=local` enables bounded local event ingestion and demo reset; `.env.example` makes both controls explicit. Every non-local runtime defaults both write paths to deny. The production Lambda enables event ingestion only behind the IAM-authorized API Gateway route and keeps demo reset disabled.
+
+## Secure producer migration status
+
+- API Gateway IAM routes, the producer role, SigV4 helper and workflow source are **IMPLEMENTED AND LOCALLY VALIDATED**.
+- They are **NOT YET DEPLOYED** and must not be described as LIVE VERIFIED.
+- A reviewed Terraform plan/apply must create the route and role before `AWS_EVIDENCE_PRODUCER_ROLE_ARN` and `PUBLIC_API_URL` are added as GitHub Actions variables.
+- CD skips authenticated evidence posting until both variables exist; it does not fall back to anonymous writes.
+- The application deployment follows producer infrastructure so the workflow never falls back to anonymous writes.
 
 ## User-owned steps (later)
 

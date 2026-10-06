@@ -57,6 +57,8 @@ func NewEngineWith(opt EngineConfig) *gin.Engine {
 		bus:         opt.Bus,
 		putRaw:      opt.PutRaw,
 		reset:       resetGate{every: 15 * time.Second},
+		allowIngest: cfg.AllowEventIngest,
+		allowReset:  cfg.AllowDemoReset,
 	}
 
 	v1 := r.Group("/api/v1")
@@ -64,6 +66,7 @@ func NewEngineWith(opt EngineConfig) *gin.Engine {
 		v1.GET("/health", h.Health)
 		v1.GET("/ready", h.Ready)
 		v1.GET("/status", h.SystemStatus)
+		v1.GET("/overview", h.Overview)
 		v1.GET("/services", h.ListServices)
 		v1.GET("/services/:id", h.GetService)
 		v1.GET("/releases", h.ListReleases)

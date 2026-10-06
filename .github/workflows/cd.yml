@@ -206,29 +206,52 @@ jobs:
         run: |
           echo "cosign_outcome=${{ steps.cosign.outcome }}" >> "$GITHUB_ENV"
           echo "cosign_outcome=${{ steps.cosign.outcome }}" >> sbom/ecr-image-evidence.json.tmp || true
-      - name: Terraform apply image
-        if: vars.ENABLE_TERRAFORM_APPLY == 'true'
-        working-directory: infra
-        run: |
-          set -euo pipefail
-          terraform init
-          terraform apply -auto-approve -var="api_image_uri=${IMAGE_URI}"
-      - name: Skip GitHub terraform apply while state is local
-        if: vars.ENABLE_TERRAFORM_APPLY != 'true'
-        run: echo "Terraform apply remains disabled. State is local. Image ${IMAGE_URI} is ready for a reviewed local plan."
-      - name: Post live evidence
+      - name: Record immutable image publication
+        run: echo "Image ${IMAGE_URI} is published. Lambda deployment remains a separate controlled release step."
+      - name: Skip evidence until producer infrastructure is configured
+        if: vars.AWS_EVIDENCE_PRODUCER_ROLE_ARN == '' || vars.PUBLIC_API_URL == ''
+        run: echo "Authenticated evidence posting is not configured yet."
+      - name: Assume evidence producer role with GitHub OIDC
+        if: vars.AWS_EVIDENCE_PRODUCER_ROLE_ARN != '' && vars.PUBLIC_API_URL != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_EVIDENCE_PRODUCER_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+          unset-current-credentials: true
+      - name: Post authenticated backend evidence
+        if: vars.AWS_EVIDENCE_PRODUCER_ROLE_ARN != '' && vars.PUBLIC_API_URL != ''
         env:
           API_URL: ${{ vars.PUBLIC_API_URL }}
         run: |
           set -euo pipefail
-          if [ -z "${API_URL:-}" ]; then
-            echo "PUBLIC_API_URL not set; skip dogfood ingest"
-            exit 0
-          fi
+          test -n "${API_URL:-}"
           NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          curl -fsS -X POST "${API_URL}/api/v1/events" \
-            -H "content-type: application/json" \
-            -d "{\"event_id\":\"evt_gha_${GITHUB_RUN_ID}\",\"event_type\":\"ci.run.completed\",\"occurred_at\":\"${NOW}\",\"source\":\"github-actions\",\"schema_version\":\"1.0\",\"service_id\":\"cloudops-api\",\"payload\":{\"git_sha\":\"${GITHUB_SHA}\",\"branch\":\"${GITHUB_REF_NAME}\",\"workflow_run_id\":\"${GITHUB_RUN_ID}\",\"workflow_name\":\"${GITHUB_WORKFLOW}\",\"workflow_result\":\"success\",\"image_digest\":\"${IMAGE_DIGEST:-}\"}}"
+          jq -n \
+            --arg event_id "evt_gha_${GITHUB_RUN_ID}" \
+            --arg occurred_at "$NOW" \
+            --arg git_sha "$GITHUB_SHA" \
+            --arg branch "$GITHUB_REF_NAME" \
+            --arg workflow_run_id "$GITHUB_RUN_ID" \
+            --arg workflow_name "$GITHUB_WORKFLOW" \
+            --arg image_digest "${IMAGE_DIGEST:-}" \
+            '{
+              event_id: $event_id,
+              event_type: "ci.run.completed",
+              occurred_at: $occurred_at,
+              source: "github-actions",
+              schema_version: "1.0",
+              service_id: "cloudops-api",
+              payload: {
+                git_sha: $git_sha,
+                branch: $branch,
+                workflow_run_id: $workflow_run_id,
+                workflow_name: $workflow_name,
+                workflow_result: "success",
+                image_digest: $image_digest
+              }
+            }' > "$RUNNER_TEMP/backend-evidence.json"
+          bash scripts/ci/post-signed-evidence.sh "$API_URL" "$RUNNER_TEMP/backend-evidence.json"
 
   deploy-frontend:
     name: aws-oidc-deploy-frontend
@@ -314,16 +337,50 @@ jobs:
             --output text)"
           echo "invalidation_completed=$ID status=$STATUS"
           test "$STATUS" = "Completed"
-      - name: Post frontend deploy live evidence
+      - name: Skip evidence until producer infrastructure is configured
+        if: vars.AWS_EVIDENCE_PRODUCER_ROLE_ARN == '' || vars.PUBLIC_API_URL == ''
+        run: echo "Authenticated evidence posting is not configured yet."
+      - name: Assume evidence producer role with GitHub OIDC
+        if: vars.AWS_EVIDENCE_PRODUCER_ROLE_ARN != '' && vars.PUBLIC_API_URL != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_EVIDENCE_PRODUCER_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+          unset-current-credentials: true
+      - name: Post authenticated frontend evidence
+        if: vars.AWS_EVIDENCE_PRODUCER_ROLE_ARN != '' && vars.PUBLIC_API_URL != ''
         env:
           API_URL: ${{ vars.PUBLIC_API_URL }}
         run: |
           set -euo pipefail
-          if [ -z "${API_URL:-}" ]; then
-            echo "PUBLIC_API_URL not set; skip dogfood ingest"
-            exit 0
-          fi
+          test -n "${API_URL:-}"
           NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          curl -fsS -X POST "${API_URL}/api/v1/events" \
-            -H "content-type: application/json" \
-            -d "{\"event_id\":\"evt_fe_${GITHUB_RUN_ID}\",\"event_type\":\"ci.run.completed\",\"occurred_at\":\"${NOW}\",\"source\":\"github-actions\",\"schema_version\":\"1.0\",\"service_id\":\"cloudops-web\",\"payload\":{\"git_sha\":\"${GITHUB_SHA}\",\"branch\":\"${GITHUB_REF_NAME}\",\"workflow_run_id\":\"${GITHUB_RUN_ID}\",\"workflow_name\":\"${GITHUB_WORKFLOW}\",\"workflow_result\":\"success\",\"surface\":\"frontend-cloudfront\",\"distribution_id\":\"${CLOUDFRONT_DISTRIBUTION_ID}\",\"web_bucket\":\"${WEB_BUCKET}\"}}"
+          jq -n \
+            --arg event_id "evt_fe_${GITHUB_RUN_ID}" \
+            --arg occurred_at "$NOW" \
+            --arg git_sha "$GITHUB_SHA" \
+            --arg branch "$GITHUB_REF_NAME" \
+            --arg workflow_run_id "$GITHUB_RUN_ID" \
+            --arg workflow_name "$GITHUB_WORKFLOW" \
+            --arg distribution_id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --arg web_bucket "$WEB_BUCKET" \
+            '{
+              event_id: $event_id,
+              event_type: "ci.run.completed",
+              occurred_at: $occurred_at,
+              source: "github-actions",
+              schema_version: "1.0",
+              service_id: "cloudops-web",
+              payload: {
+                git_sha: $git_sha,
+                branch: $branch,
+                workflow_run_id: $workflow_run_id,
+                workflow_name: $workflow_name,
+                workflow_result: "success",
+                surface: "frontend-cloudfront",
+                distribution_id: $distribution_id,
+                web_bucket: $web_bucket
+              }
+            }' > "$RUNNER_TEMP/frontend-evidence.json"
+          bash scripts/ci/post-signed-evidence.sh "$API_URL" "$RUNNER_TEMP/frontend-evidence.json"

@@ -13,7 +13,7 @@
 | Edge | CloudFront + S3 (web), API Gateway HTTP API (API) | TLS, low idle cost |
 | Region | `eu-west-1` | User timezone UTC+2; full service coverage; single region |
 | Policy | OPA embedded in the worker/API process | Policy as code without a standing OPA cluster |
-| Auth for public demo | Unauthenticated read + rate-limited write for demo reset | Recruiter usable; no login theatre |
+| Auth for public demo | Unauthenticated reads; IAM-authorized event ingest; production reset disabled | Recruiter usable without exposing anonymous operational writes |
 | CI auth to AWS | GitHub OIDC | No long-lived access keys |
 | Kubernetes | Not used | Would add cost and complexity without serving this architecture |
 | LLM | Not used | Deterministic operational analysis is the point |
@@ -37,7 +37,8 @@ Producer (GitHub webhook, demo seed, or internal API)
 
 Angular console
     → CloudFront → S3 static origin
-    → CloudFront /api/* → API Gateway
+    → API Gateway `/api/v1/*` directly in the public build
+    → Angular `/api` proxy → local Go API in development
 ```
 
 The analysis engines are plain Go packages. The worker is the production caller. Demo seed may invoke the same packages in-process after writing inputs so the recruiter does not wait on the queue, then still emit EventBridge events. Duplicate worker delivery is a no-op via idempotent assessment keys.
@@ -109,18 +110,19 @@ Versioned REST under `/api/v1`. JSON only.
 | GET | `/api/v1/releases/{id}/risk` | Risk assessment |
 | GET | `/api/v1/releases/{id}/health` | Health comparison |
 | GET | `/api/v1/releases/{id}/impact` | Blast radius |
-| GET | `/api/v1/releases/{id}/policies` | Policy evaluations |
+| GET | `/api/v1/releases/{id}/policy` | Policy evaluation |
 | GET | `/api/v1/releases/{id}/rollback` | Rollback readiness |
 | GET | `/api/v1/releases/{id}/timeline` | Evidence events |
-| GET | `/api/v1/releases/compare?a=&b=` | Release Replay |
+| GET | `/api/v1/replay?a=&b=` | Release Replay |
 | GET | `/api/v1/services` | Service catalog |
 | GET | `/api/v1/services/{id}` | Service + edges |
-| GET | `/api/v1/incidents` | Incidents |
-| POST | `/api/v1/events` | Authenticated/internal ingestion (signature or IAM) |
-| POST | `/api/v1/demo/reset` | Rate-limited synthetic reseeding |
+| POST | `/api/v1/events` | IAM-authorized production ingestion; explicit local-mode ingestion |
+| POST | `/api/v1/demo/reset` | IAM-authorized route, application-disabled in production; bounded local reseeding |
 | GET | `/api/v1/status` | System status for the Architecture/Status page |
 
-Public demo reads are open. `POST /events` is not a public recruiter toy: GitHub signature or IAM. `POST /demo/reset` is public but strictly rate-limited and synthetic-only.
+Public demo reads are open through `GET /api/v1/{proxy+}` with `authorization_type = NONE`. There is no public `$default` route. The explicit API Gateway write routes use `AWS_IAM`; GitHub's dedicated OIDC producer role can invoke only `POST /api/v1/events`. The application independently fails closed outside local mode. `POST /demo/reset` has no producer-role permission and remains disabled in the production Lambda configuration.
+
+This authorization model is **IMPLEMENTED AND LOCALLY VALIDATED, NOT YET DEPLOYED OR LIVE VERIFIED**.
 
 Error bodies are stable:
 
@@ -165,7 +167,7 @@ Portfolio default: **one production environment** plus local. A second full AWS 
 - SQS `maxReceiveCount = 3`, then DLQ
 - Idempotency on `event_id` via DynamoDB `attribute_not_exists`
 - Assessments keyed so recomputation is overwrite-safe
-- Rate limit demo reset and public GETs at API Gateway
+- Throttle public GETs; keep demo reset IAM-protected and application-disabled in production
 - Worker visibility timeout > worst-case analysis duration
 
 ## Observability

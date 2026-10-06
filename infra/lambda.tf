@@ -14,16 +14,18 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      APP_ENV              = "prod"
-      APP_STORE            = "dynamodb"
-      APP_SEED_LOCAL       = "true"
-      APP_LOG_LEVEL        = "info"
-      APP_SERVICE_NAME     = "cloudops-api"
-      DDB_TABLE_NAME       = aws_dynamodb_table.main.name
-      EVENT_BUS_NAME       = aws_cloudwatch_event_bus.main.name
-      EVENT_SOURCE         = "cloudops.release-intelligence"
-      S3_RAW_EVENTS_BUCKET = aws_s3_bucket.raw.bucket
-      APP_CORS_ORIGINS     = "https://${aws_cloudfront_distribution.web.domain_name}"
+      APP_ENV                = "prod"
+      APP_STORE              = "dynamodb"
+      APP_SEED_LOCAL         = "true"
+      APP_ALLOW_EVENT_INGEST = "true"
+      APP_ALLOW_DEMO_RESET   = "false"
+      APP_LOG_LEVEL          = "info"
+      APP_SERVICE_NAME       = "cloudops-api"
+      DDB_TABLE_NAME         = aws_dynamodb_table.main.name
+      EVENT_BUS_NAME         = aws_cloudwatch_event_bus.main.name
+      EVENT_SOURCE           = "cloudops.release-intelligence"
+      S3_RAW_EVENTS_BUCKET   = aws_s3_bucket.raw.bucket
+      APP_CORS_ORIGINS       = "https://${aws_cloudfront_distribution.web.domain_name}"
     }
   }
 

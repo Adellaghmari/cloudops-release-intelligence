@@ -67,6 +67,26 @@ data "aws_iam_policy_document" "github_plan_assume" {
   }
 }
 
+data "aws_iam_policy_document" "github_evidence_producer_assume" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [local.github_oidc_arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${local.github_repo_full_oidc}:ref:refs/heads/main"]
+    }
+  }
+}
+
 resource "aws_iam_role" "github_deploy" {
   name               = "${local.name_prefix}-github-deploy"
   assume_role_policy = data.aws_iam_policy_document.github_assume.json
@@ -75,6 +95,12 @@ resource "aws_iam_role" "github_deploy" {
 resource "aws_iam_role" "github_plan" {
   name               = "${local.name_prefix}-github-plan"
   assume_role_policy = data.aws_iam_policy_document.github_plan_assume.json
+}
+
+resource "aws_iam_role" "github_evidence_producer" {
+  count              = local.deploy_compute ? 1 : 0
+  name               = "${local.name_prefix}-github-evidence-producer"
+  assume_role_policy = data.aws_iam_policy_document.github_evidence_producer_assume.json
 }
 
 # Portfolio-grade deploy policy: Resource:"*" only where AWS requires it
@@ -157,26 +183,29 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = ["*"]
   }
 
-  statement {
-    sid = "DeployEvidenceWrites"
-    actions = [
-      "dynamodb:PutItem",
-      "dynamodb:GetItem",
-      "dynamodb:Query",
-      "events:PutEvents",
-    ]
-    resources = [
-      aws_dynamodb_table.main.arn,
-      "${aws_dynamodb_table.main.arn}/index/*",
-      aws_cloudwatch_event_bus.main.arn,
-    ]
-  }
 }
 
 resource "aws_iam_role_policy" "github_deploy" {
   name   = "deploy"
   role   = aws_iam_role.github_deploy.id
   policy = data.aws_iam_policy_document.github_deploy.json
+}
+
+data "aws_iam_policy_document" "github_evidence_producer" {
+  count = local.deploy_compute ? 1 : 0
+
+  statement {
+    sid       = "InvokeCanonicalEventIngest"
+    actions   = ["execute-api:Invoke"]
+    resources = ["${aws_apigatewayv2_api.http[0].execution_arn}/*/POST/api/v1/events"]
+  }
+}
+
+resource "aws_iam_role_policy" "github_evidence_producer" {
+  count  = local.deploy_compute ? 1 : 0
+  name   = "invoke-event-ingest"
+  role   = aws_iam_role.github_evidence_producer[0].id
+  policy = data.aws_iam_policy_document.github_evidence_producer[0].json
 }
 
 # Plan role: ReadOnlyAccess for refresh/plan, plus explicit S3 state RW/lock

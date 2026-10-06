@@ -24,8 +24,9 @@ Go test/vet, Angular lint/unit/build, supply-chain checks as configured on main.
 
 Path-filtered:
 
-- Backend paths → build/push Lambda image (OIDC deploy role), update functions
+- Backend paths → build and publish an immutable Lambda image with the OIDC deploy role
 - Frontend / `cd.yml` → Angular build, S3 sync, CloudFront invalidation **with GetInvalidation waiter**
+- Evidence → when the producer role and public API variables are configured, re-assume the dedicated OIDC producer role and SigV4-sign `POST /api/v1/events`
 - Docs-only changes must not mint a new backend image
 
 ### Terraform (`terraform.yml`)
@@ -48,8 +49,10 @@ Immutable subjects use owner/repo IDs:
 
 - Plan: `main` + `pull_request`
 - Deploy/apply: `main` + `environment:prod`
+- Evidence producer: exact `main` subject; only `execute-api:Invoke` on the canonical event-ingest route
 
 ## Final posture
 
 - `TERRAFORM_REMOTE_STATE_READY=true`
 - `ENABLE_TERRAFORM_APPLY=false`
+- Secure producer workflow: **CONFIGURED LOCALLY, NOT YET DEPLOYED OR LIVE VERIFIED**
