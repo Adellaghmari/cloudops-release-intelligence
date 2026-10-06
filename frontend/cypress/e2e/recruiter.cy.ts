@@ -30,7 +30,7 @@ describe('Recruiter local workflow', () => {
     cy.contains('Risk');
     cy.contains('Health');
     cy.contains('Recovery');
-    cy.contains('Changed only').click();
+    cy.contains('Changed evidence only').click();
 
     cy.contains('a', 'Services').click();
     cy.contains('Change impact catalog');
