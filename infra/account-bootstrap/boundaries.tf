@@ -89,6 +89,7 @@ data "aws_iam_policy_document" "terraform_apply_boundary" {
       "lambda:GetFunction",
       "lambda:GetFunctionConfiguration",
       "lambda:GetPolicy",
+      "lambda:ListVersionsByFunction",
       "lambda:ListTags",
       "lambda:RemovePermission",
       "lambda:TagResource",
