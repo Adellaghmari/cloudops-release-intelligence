@@ -6,6 +6,10 @@ export interface ServiceRecord {
   description?: string;
   criticality: string;
   source: DataSource;
+  depends_on_count?: number;
+  depended_by_count?: number;
+  release_count?: number;
+  latest_release_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -69,10 +73,40 @@ export interface ServiceDetailResponse {
   service: ServiceRecord;
   depends_on: DependencyRecord[];
   depended_by: DependencyRecord[];
+  related_releases: ReleaseRecord[];
 }
 
 export interface ReleaseListResponse {
   releases: ReleaseRecord[];
+}
+
+export interface ReleaseSummary {
+  release_id: string;
+  service_id: string;
+  service_name: string;
+  version: string;
+  scenario?: string;
+  source: DataSource;
+  status: string;
+  risk_score: number;
+  risk_category: string;
+  health_overall: string;
+  health_correlation: string;
+  policy_result: string;
+  rollback_status: string;
+  direct_dependents: number;
+  transitive_impact: number;
+  incident_count: number;
+  attention_level: string;
+  attention_reasons: string[];
+  created_at: string;
+}
+
+export interface OverviewResponse {
+  attention_release_id?: string;
+  live_services: number;
+  synthetic_services: number;
+  releases: ReleaseSummary[];
 }
 
 export interface ReleaseDetailResponse {

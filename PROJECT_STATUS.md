@@ -12,16 +12,17 @@
 - Lambdas Active on `sha256:ef3778d5af9e80d155610d5ffb0a889e509a4ba3da3fee2ac6878c6c5287ade5`
 - Operator `adel-admin` / `eu-west-1`
 
-## Phase 16B Part 3 — controlled GitHub Terraform apply
+## Protected production release
 
 ### Workflow safety
-- Apply only on `workflow_dispatch` + `apply=true` + `ENABLE_TERRAFORM_APPLY=true` + `environment: prod`
-- Never on push/PR
-- Same-job plan must be no-op (`-detailed-exitcode`) or apply is refused
-- Apply uses `cloudops-prod-github-deploy` via OIDC (not plan role / static keys)
-- Deploy role also has AWS managed **ReadOnlyAccess** for Terraform refresh during apply (broad read — not fully least privilege)
+- Push and pull request workflows never mutate production.
+- Manual release requires the exact current `main` SHA and `ENABLE_TERRAFORM_APPLY=true`.
+- Candidate digest is bound into a saved Terraform plan before approval.
+- Deletes and replacements are rejected before the protected `prod` gate.
+- Apply uses `cloudops-prod-terraform-apply` through OIDC and applies the exact saved plan.
+- Terraform owns Lambda image deployment. Frontend deployment and signed evidence follow successful apply.
 
-### Controlled no-op apply proof
+### Historical controlled no-op proof
 - Gate enabled only for the run, then immediately set `ENABLE_TERRAFORM_APPLY=false`
 - Run: https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34399074308 (**success**)
 - SHA: `8232ee0`
@@ -31,7 +32,7 @@
 - Apply: **0 added / 0 changed / 0 destroyed**
 - Lock acquired/released; idle `.tflock` absent afterward
 
-### Negative apply-gate proof
+### Historical negative gate proof
 - After disable: dispatch with `apply=true` → apply job **skipped**
 - Run: https://github.com/Adellaghmari/cloudops-release-intelligence/actions/runs/34399312899
 - `ENABLE_TERRAFORM_APPLY=false` (final operational posture)
@@ -41,6 +42,8 @@
 | --- | --- |
 | `TERRAFORM_REMOTE_STATE_READY` | `true` |
 | `ENABLE_TERRAFORM_APPLY` | `false` |
+| Account bootstrap | `LIVE VERIFIED, ZERO DRIFT` |
+| Protected release | `IMPLEMENTED, NOT YET EXECUTED` |
 
 ## Prior LIVE VERIFIED (16B Part 1–2)
 

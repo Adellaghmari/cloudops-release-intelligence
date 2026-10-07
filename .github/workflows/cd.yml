@@ -1,329 +1,710 @@
-name: cd
+name: protected-release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
-      force_lambda:
-        description: Build and push Lambda image
-        type: boolean
-        default: false
-      force_frontend:
-        description: Deploy Angular SPA to S3/CloudFront
-        type: boolean
-        default: true
+      source_sha:
+        description: Exact approved main commit SHA
+        type: string
+        required: true
 
 permissions:
   contents: read
+  actions: read
   id-token: write
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
 
 env:
   AWS_REGION: eu-west-1
+  TF_IN_AUTOMATION: "true"
+  ECR_URL: 912415493331.dkr.ecr.eu-west-1.amazonaws.com/cloudops-prod-api
   WEB_BUCKET: cloudops-prod-web-7be25877
   CLOUDFRONT_DISTRIBUTION_ID: E2220NQVG6GU75
+  TERRAFORM_APPLY_ROLE_ARN: arn:aws:iam::912415493331:role/cloudops-prod-terraform-apply
+  TF_VAR_budget_notification_email: ${{ secrets.TF_VAR_BUDGET_NOTIFICATION_EMAIL }}
+  TF_VAR_terraform_state_bucket_arn: ${{ vars.TF_VAR_TERRAFORM_STATE_BUCKET_ARN }}
+  TF_VAR_terraform_state_bucket_name: ${{ vars.TF_VAR_TERRAFORM_STATE_BUCKET_NAME }}
+  TF_VAR_terraform_state_key: ${{ vars.TF_VAR_TERRAFORM_STATE_KEY }}
 
 jobs:
-  changes:
-    name: path-filter
-    runs-on: ubuntu-latest
-    outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            backend:
-              - 'cmd/**'
-              - 'internal/**'
-              - 'go.mod'
-              - 'go.sum'
-              - 'Dockerfile'
-              - 'lambda/**'
-              - 'scripts/ci/lambda-image-proof.sh'
-              - 'policies/**'
-            frontend:
-              - 'frontend/**'
-              - '.github/workflows/cd.yml'
-
-  publish-evidence:
-    name: record-pipeline-evidence
+  source:
+    name: Verify approved main source
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Write pipeline evidence artifact
+      - name: Fail closed outside approved release context
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          ENABLE_TERRAFORM_APPLY: ${{ vars.ENABLE_TERRAFORM_APPLY }}
         run: |
-          mkdir -p sbom
-          cat > sbom/pipeline-evidence.json <<EOF
-          {
-            "source": "live",
-            "git_sha": "${GITHUB_SHA}",
-            "branch": "${GITHUB_REF_NAME}",
-            "workflow_run_id": "${GITHUB_RUN_ID}",
-            "workflow_name": "${GITHUB_WORKFLOW}",
-            "workflow_result": "in_progress",
-            "recorded_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          }
-          EOF
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pipeline-evidence
-          path: sbom/pipeline-evidence.json
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test -n "$SOURCE_SHA"
+          test "$SOURCE_SHA" = "${GITHUB_SHA}"
+          test "$ENABLE_TERRAFORM_APPLY" = "true"
+          test -n "${TF_VAR_budget_notification_email:-}"
+          test -n "${TF_VAR_terraform_state_bucket_arn:-}"
+          test -n "${TF_VAR_terraform_state_bucket_name:-}"
+          test -n "${TF_VAR_terraform_state_key:-}"
 
-  deploy:
-    name: aws-oidc-deploy-lambda
+  candidate:
+    name: Build immutable candidate
     runs-on: ubuntu-latest
-    needs: [publish-evidence, changes]
-    if: >
-      vars.AWS_DEPLOY_ROLE_ARN != '' &&
-      (needs.changes.outputs.backend == 'true' ||
-       (github.event_name == 'workflow_dispatch' && inputs.force_lambda))
+    needs: [source]
     permissions:
       contents: read
       id-token: write
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+      image_uri: ${{ steps.publish.outputs.image_uri }}
+      tag: ${{ steps.publish.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Show OIDC claims without printing the token
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json, os, urllib.request, base64
-          req_url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=sts.amazonaws.com"
-          req = urllib.request.Request(req_url, headers={"Authorization": "bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]})
-          with urllib.request.urlopen(req) as resp:
-              token = json.load(resp)["value"]
-          payload = token.split(".")[1] + "=" * ((4 - len(token.split(".")[1]) % 4) % 4)
-          claims = json.loads(base64.urlsafe_b64decode(payload))
-          for key in ("iss", "aud", "sub", "repository", "ref", "job_workflow_ref"):
-              print(f"{key}={claims.get(key)}")
-          PY
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_sha }}
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: candidate-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
           audience: sts.amazonaws.com
-      - name: Prove OIDC assumption
+          inline-session-policy: >-
+            {
+              "Version":"2012-10-17",
+              "Statement":[
+                {
+                  "Effect":"Allow",
+                  "Action":"ecr:GetAuthorizationToken",
+                  "Resource":"*"
+                },
+                {
+                  "Effect":"Allow",
+                  "Action":[
+                    "ecr:BatchCheckLayerAvailability",
+                    "ecr:BatchGetImage",
+                    "ecr:CompleteLayerUpload",
+                    "ecr:DescribeImages",
+                    "ecr:DescribeRepositories",
+                    "ecr:GetDownloadUrlForLayer",
+                    "ecr:InitiateLayerUpload",
+                    "ecr:PutImage",
+                    "ecr:UploadLayerPart"
+                  ],
+                  "Resource":"arn:aws:ecr:eu-west-1:912415493331:repository/cloudops-prod-api"
+                }
+              ]
+            }
+      - name: Prove candidate publisher identity
         id: oidc
         run: |
           set -euo pipefail
-          aws sts get-caller-identity
-          ARN="$(aws sts get-caller-identity --query Arn --output text)"
-          echo "caller_arn=$ARN" >> "$GITHUB_OUTPUT"
-          echo "$ARN" | grep -q 'assumed-role/cloudops-prod-github-deploy/'
-      - uses: docker/setup-buildx-action@v3
-      - name: Login ECR
-        uses: aws-actions/amazon-ecr-login@v2
-      - name: Build Lambda image
-        env:
-          ECR_URL: ${{ vars.ECR_REPOSITORY_URL }}
+          caller="$(aws sts get-caller-identity --query Arn --output text)"
+          echo "$caller" | grep -q 'assumed-role/cloudops-prod-github-deploy/'
+          echo "caller_arn=$caller" >> "$GITHUB_OUTPUT"
+      - name: Resolve existing candidate
+        id: existing
         run: |
           set -euo pipefail
-          test -n "$ECR_URL"
-          docker build --target lambda -t "$ECR_URL:sha-${GITHUB_SHA}" .
-          docker image inspect "$ECR_URL:sha-${GITHUB_SHA}" --format 'os={{.Os}} arch={{.Architecture}} user={{.Config.User}} entrypoint={{json .Config.Entrypoint}} cmd={{json .Config.Cmd}}'
-      - name: Lambda bootstrap + RIE proof
+          tag="sha-${GITHUB_SHA}"
+          digest="$(aws ecr batch-get-image \
+            --repository-name cloudops-prod-api \
+            --image-ids imageTag="$tag" \
+            --query 'images[0].imageId.imageDigest' \
+            --output text)"
+          if [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
+      - name: Build candidate once
+        if: steps.existing.outputs.exists != 'true'
+        run: |
+          set -euo pipefail
+          docker build \
+            --target lambda \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            -t "${ECR_URL}:sha-${GITHUB_SHA}" \
+            .
+          docker image inspect "${ECR_URL}:sha-${GITHUB_SHA}" \
+            --format 'os={{.Os}} arch={{.Architecture}} user={{.Config.User}} entrypoint={{json .Config.Entrypoint}} cmd={{json .Config.Cmd}}'
+      - name: Pull existing immutable candidate
+        if: steps.existing.outputs.exists == 'true'
         env:
-          ECR_URL: ${{ vars.ECR_REPOSITORY_URL }}
-        run: bash scripts/ci/lambda-image-proof.sh "$ECR_URL:sha-${GITHUB_SHA}"
-      - name: Trivy Lambda image
+          EXISTING_DIGEST: ${{ steps.existing.outputs.digest }}
+        run: |
+          set -euo pipefail
+          docker pull "${ECR_URL}@${EXISTING_DIGEST}"
+          docker tag "${ECR_URL}@${EXISTING_DIGEST}" "${ECR_URL}:sha-${GITHUB_SHA}"
+      - name: Verify candidate source identity
+        run: |
+          set -euo pipefail
+          revision="$(docker image inspect "${ECR_URL}:sha-${GITHUB_SHA}" \
+            --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+          test "$revision" = "$GITHUB_SHA"
+      - name: Prove Lambda image contract
+        run: bash scripts/ci/lambda-image-proof.sh "${ECR_URL}:sha-${GITHUB_SHA}"
+      - name: Scan candidate
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: ${{ vars.ECR_REPOSITORY_URL }}:sha-${{ github.sha }}
+          image-ref: ${{ env.ECR_URL }}:sha-${{ github.sha }}
           severity: CRITICAL,HIGH
           format: table
           output: trivy-lambda.txt
           ignore-unfixed: true
-      - name: Fail on unfixed CRITICAL
+      - name: Block unfixed critical vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: ${{ vars.ECR_REPOSITORY_URL }}:sha-${{ github.sha }}
+          image-ref: ${{ env.ECR_URL }}:sha-${{ github.sha }}
           severity: CRITICAL
           exit-code: "1"
           ignore-unfixed: true
-      - name: Syft SBOM for Lambda image
-        uses: anchore/sbom-action@v0
+      - name: Generate candidate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
-          image: ${{ vars.ECR_REPOSITORY_URL }}:sha-${{ github.sha }}
+          image: ${{ env.ECR_URL }}:sha-${{ github.sha }}
           format: spdx-json
           artifact-name: cloudops-lambda-sbom.spdx.json
-      - name: Push immutable image and record digest
+      - name: Publish candidate and resolve digest
+        id: publish
         env:
-          ECR_URL: ${{ vars.ECR_REPOSITORY_URL }}
+          CANDIDATE_EXISTS: ${{ steps.existing.outputs.exists }}
+          EXISTING_DIGEST: ${{ steps.existing.outputs.digest }}
+          OIDC_CALLER_ARN: ${{ steps.oidc.outputs.caller_arn }}
         run: |
           set -euo pipefail
-          docker push "$ECR_URL:sha-${GITHUB_SHA}"
-          DIGEST="$(aws ecr describe-images \
-            --repository-name cloudops-prod-api \
-            --image-ids imageTag="sha-${GITHUB_SHA}" \
-            --query 'imageDetails[0].imageDigest' \
-            --output text)"
-          test -n "$DIGEST"
-          test "$DIGEST" != "None"
-          echo "IMAGE_URI=${ECR_URL}@${DIGEST}" >> "$GITHUB_ENV"
-          echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_ENV"
-          echo "IMAGE_TAG=sha-${GITHUB_SHA}" >> "$GITHUB_ENV"
-          mkdir -p sbom
-          cat > sbom/ecr-image-evidence.json <<EOF
-          {
-            "source": "live",
-            "git_sha": "${GITHUB_SHA}",
-            "branch": "${GITHUB_REF_NAME}",
-            "workflow_run_id": "${GITHUB_RUN_ID}",
-            "workflow_name": "${GITHUB_WORKFLOW}",
-            "image_repository": "cloudops-prod-api",
-            "image_tag": "sha-${GITHUB_SHA}",
-            "image_digest": "${DIGEST}",
-            "image_uri": "${ECR_URL}@${DIGEST}",
-            "oidc_caller_arn": "${{ steps.oidc.outputs.caller_arn }}",
-            "recorded_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          }
-          EOF
-      - uses: actions/upload-artifact@v4
+          tag="sha-${GITHUB_SHA}"
+          if [ "$CANDIDATE_EXISTS" = "true" ]; then
+            digest="$EXISTING_DIGEST"
+          else
+            docker push "${ECR_URL}:${tag}"
+            digest="$(aws ecr describe-images \
+              --repository-name cloudops-prod-api \
+              --image-ids imageTag="$tag" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text)"
+          fi
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          image_uri="${ECR_URL}@${digest}"
+          mkdir -p release
+          jq -n \
+            --arg source_sha "$GITHUB_SHA" \
+            --arg workflow_run_id "$GITHUB_RUN_ID" \
+            --arg repository "$ECR_URL" \
+            --arg tag "$tag" \
+            --arg digest "$digest" \
+            --arg image_uri "$image_uri" \
+            --arg caller_arn "$OIDC_CALLER_ARN" \
+            --arg created_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{
+              source_sha: $source_sha,
+              workflow_run_id: $workflow_run_id,
+              repository: $repository,
+              tag: $tag,
+              digest: $digest,
+              image_uri: $image_uri,
+              caller_arn: $caller_arn,
+              created_at: $created_at
+            }' > release/candidate.json
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "image_uri=$image_uri" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ecr-image-evidence
+          name: candidate-${{ github.run_id }}
           path: |
-            sbom/ecr-image-evidence.json
+            release/candidate.json
             trivy-lambda.txt
-      - uses: sigstore/cosign-installer@v3
-      - name: Cosign keyless sign
+          retention-days: 7
+          if-no-files-found: error
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - name: Sign candidate
         id: cosign
         continue-on-error: true
         env:
-          COSIGN_EXPERIMENTAL: "1"
+          IMAGE_URI: ${{ steps.publish.outputs.image_uri }}
         run: |
           set -euo pipefail
-          cosign sign --yes "${IMAGE_URI}"
+          cosign sign --yes "$IMAGE_URI"
           cosign verify \
             --certificate-identity-regexp 'https://github.com/Adellaghmari/cloudops-release-intelligence/.github/workflows/cd.yml@refs/heads/main' \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            "${IMAGE_URI}"
-      - name: Record Cosign status
-        run: |
-          echo "cosign_outcome=${{ steps.cosign.outcome }}" >> "$GITHUB_ENV"
-          echo "cosign_outcome=${{ steps.cosign.outcome }}" >> sbom/ecr-image-evidence.json.tmp || true
-      - name: Terraform apply image
-        if: vars.ENABLE_TERRAFORM_APPLY == 'true'
-        working-directory: infra
-        run: |
-          set -euo pipefail
-          terraform init
-          terraform apply -auto-approve -var="api_image_uri=${IMAGE_URI}"
-      - name: Skip GitHub terraform apply while state is local
-        if: vars.ENABLE_TERRAFORM_APPLY != 'true'
-        run: echo "Terraform apply remains disabled. State is local. Image ${IMAGE_URI} is ready for a reviewed local plan."
-      - name: Post live evidence
-        env:
-          API_URL: ${{ vars.PUBLIC_API_URL }}
-        run: |
-          set -euo pipefail
-          if [ -z "${API_URL:-}" ]; then
-            echo "PUBLIC_API_URL not set; skip dogfood ingest"
-            exit 0
-          fi
-          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          curl -fsS -X POST "${API_URL}/api/v1/events" \
-            -H "content-type: application/json" \
-            -d "{\"event_id\":\"evt_gha_${GITHUB_RUN_ID}\",\"event_type\":\"ci.run.completed\",\"occurred_at\":\"${NOW}\",\"source\":\"github-actions\",\"schema_version\":\"1.0\",\"service_id\":\"cloudops-api\",\"payload\":{\"git_sha\":\"${GITHUB_SHA}\",\"branch\":\"${GITHUB_REF_NAME}\",\"workflow_run_id\":\"${GITHUB_RUN_ID}\",\"workflow_name\":\"${GITHUB_WORKFLOW}\",\"workflow_result\":\"success\",\"image_digest\":\"${IMAGE_DIGEST:-}\"}}"
+            "$IMAGE_URI"
+      - name: Record optional signing result
+        run: echo "Cosign outcome ${{ steps.cosign.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
-  deploy-frontend:
-    name: aws-oidc-deploy-frontend
+  plan:
+    name: Plan release
     runs-on: ubuntu-latest
-    needs: [publish-evidence, changes]
-    if: >
-      vars.AWS_DEPLOY_ROLE_ARN != '' &&
-      (needs.changes.outputs.frontend == 'true' ||
-       (github.event_name == 'workflow_dispatch' && inputs.force_frontend))
+    needs: [source, candidate]
     permissions:
       contents: read
       id-token: write
+    outputs:
+      artifact_name: ${{ steps.metadata.outputs.artifact_name }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+      config_tree: ${{ steps.metadata.outputs.config_tree }}
+      plan_sha256: ${{ steps.metadata.outputs.plan_sha256 }}
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      TF_VAR_api_image_uri: ${{ needs.candidate.outputs.image_uri }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_sha }}
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          role-session-name: release-plan-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+      - name: Prove plan role identity
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity --query Arn --output text \
+            | grep -q 'assumed-role/cloudops-prod-github-plan/'
+      - name: Create exact release plan
+        run: |
+          set -euo pipefail
+          [[ "${TF_VAR_api_image_uri}" =~ @sha256:[0-9a-f]{64}$ ]]
+          terraform init -input=false
+          terraform fmt -check -recursive
+          terraform validate
+          terraform plan -input=false -lock=true -out=tfplan
+          terraform show -json tfplan > "${RUNNER_TEMP}/release-plan.json"
+          python3 ../scripts/ci/terraform-plan-guard.py \
+            "${RUNNER_TEMP}/release-plan.json" \
+            --summary-json release-plan-summary.json \
+            --summary-markdown release-plan-summary.md \
+            --expected-image-uri "${TF_VAR_api_image_uri}"
+          cat release-plan-summary.md >> "$GITHUB_STEP_SUMMARY"
+          rm -f "${RUNNER_TEMP}/release-plan.json"
+      - name: Bind plan identity
+        id: metadata
+        env:
+          CANDIDATE_DIGEST: ${{ needs.candidate.outputs.digest }}
+          CANDIDATE_IMAGE_URI: ${{ needs.candidate.outputs.image_uri }}
+        run: |
+          set -euo pipefail
+          plan_sha256="$(sha256sum tfplan | awk '{print $1}')"
+          config_tree="$(git rev-parse "${GITHUB_SHA}:infra")"
+          artifact_name="release-plan-${GITHUB_RUN_ID}"
+          jq -n \
+            --arg source_sha "$GITHUB_SHA" \
+            --arg candidate_digest "$CANDIDATE_DIGEST" \
+            --arg candidate_image_uri "$CANDIDATE_IMAGE_URI" \
+            --arg terraform_version "1.10.5" \
+            --arg workflow_run_id "$GITHUB_RUN_ID" \
+            --arg workflow_ref "$GITHUB_WORKFLOW_REF" \
+            --arg config_tree "$config_tree" \
+            --arg backend_bucket "cloudops-prod-tfstate-7d9fdd77" \
+            --arg state_key "cloudops-release-intelligence/prod/terraform.tfstate" \
+            --arg plan_sha256 "$plan_sha256" \
+            --arg created_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{
+              source_sha: $source_sha,
+              candidate_digest: $candidate_digest,
+              candidate_image_uri: $candidate_image_uri,
+              terraform_version: $terraform_version,
+              workflow_run_id: $workflow_run_id,
+              workflow_ref: $workflow_ref,
+              config_tree: $config_tree,
+              backend_bucket: $backend_bucket,
+              state_key: $state_key,
+              plan_sha256: $plan_sha256,
+              created_at: $created_at
+            }' > release-metadata.json
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "config_tree=$config_tree" >> "$GITHUB_OUTPUT"
+          echo "plan_sha256=$plan_sha256" >> "$GITHUB_OUTPUT"
+      - name: Upload reviewed plan artifact
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ steps.metadata.outputs.artifact_name }}
+          path: |
+            infra/tfplan
+            infra/release-metadata.json
+            infra/release-plan-summary.json
+            infra/release-plan-summary.md
+          retention-days: 1
+          if-no-files-found: error
+
+  apply:
+    name: Apply exact reviewed plan
+    runs-on: ubuntu-latest
+    needs: [source, candidate, plan]
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    outputs:
+      api_endpoint: ${{ steps.release_outputs.outputs.api_endpoint }}
+      cloudfront_domain: ${{ steps.release_outputs.outputs.cloudfront_domain }}
+      evidence_role_arn: ${{ steps.release_outputs.outputs.evidence_role_arn }}
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_sha }}
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+      - name: Download plan from this workflow run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ needs.plan.outputs.artifact_name }}
+          path: infra
+      - name: Verify exact plan identity and safety
+        env:
+          CANDIDATE_DIGEST: ${{ needs.candidate.outputs.digest }}
+          CANDIDATE_IMAGE_URI: ${{ needs.candidate.outputs.image_uri }}
+          EXPECTED_CONFIG_TREE: ${{ needs.plan.outputs.config_tree }}
+          EXPECTED_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+          EXPECTED_ARTIFACT_DIGEST: ${{ needs.plan.outputs.artifact_digest }}
+        run: |
+          set -euo pipefail
+          terraform init -backend=false -input=false
+          test -f tfplan
+          test -f release-metadata.json
+          test -n "$EXPECTED_ARTIFACT_DIGEST"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(jq -r .source_sha release-metadata.json)" = "$GITHUB_SHA"
+          test "$(jq -r .candidate_digest release-metadata.json)" = "$CANDIDATE_DIGEST"
+          test "$(jq -r .candidate_image_uri release-metadata.json)" = "$CANDIDATE_IMAGE_URI"
+          test "$(jq -r .terraform_version release-metadata.json)" = "1.10.5"
+          test "$(jq -r .workflow_run_id release-metadata.json)" = "$GITHUB_RUN_ID"
+          test "$(jq -r .workflow_ref release-metadata.json)" = "$GITHUB_WORKFLOW_REF"
+          test "$(jq -r .config_tree release-metadata.json)" = "$EXPECTED_CONFIG_TREE"
+          test "$EXPECTED_CONFIG_TREE" = "$(git rev-parse "${GITHUB_SHA}:infra")"
+          test "$(jq -r .backend_bucket release-metadata.json)" = "cloudops-prod-tfstate-7d9fdd77"
+          test "$(jq -r .state_key release-metadata.json)" = "cloudops-release-intelligence/prod/terraform.tfstate"
+          test "$(jq -r .plan_sha256 release-metadata.json)" = "$EXPECTED_PLAN_SHA256"
+          test "$EXPECTED_PLAN_SHA256" = "$(sha256sum tfplan | awk '{print $1}')"
+          terraform show -json tfplan > "${RUNNER_TEMP}/apply-plan.json"
+          python3 ../scripts/ci/terraform-plan-guard.py \
+            "${RUNNER_TEMP}/apply-plan.json" \
+            --summary-json "${RUNNER_TEMP}/apply-summary.json" \
+            --summary-markdown "${RUNNER_TEMP}/apply-summary.md" \
+            --expected-image-uri "$CANDIDATE_IMAGE_URI"
+          rm -f "${RUNNER_TEMP}/apply-plan.json"
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ env.TERRAFORM_APPLY_ROLE_ARN }}
+          role-session-name: release-apply-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+      - name: Prove production Terraform identity
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity --query Arn --output text \
+            | grep -q 'assumed-role/cloudops-prod-terraform-apply/'
+      - name: Apply saved plan without recalculation
+        run: |
+          set -euo pipefail
+          terraform init -input=false -reconfigure
+          terraform apply -input=false tfplan
+      - name: Export verified release outputs
+        id: release_outputs
+        run: |
+          set -euo pipefail
+          api_endpoint="$(terraform output -raw api_endpoint)"
+          cloudfront_domain="$(terraform output -raw cloudfront_domain)"
+          evidence_role_arn="$(terraform output -raw github_evidence_producer_role_arn)"
+          [[ "$api_endpoint" =~ ^https://[^/?#]+$ ]]
+          test -n "$cloudfront_domain"
+          test "$evidence_role_arn" = "arn:aws:iam::912415493331:role/cloudops-prod-github-evidence-producer"
+          echo "api_endpoint=$api_endpoint" >> "$GITHUB_OUTPUT"
+          echo "cloudfront_domain=$cloudfront_domain" >> "$GITHUB_OUTPUT"
+          echo "evidence_role_arn=$evidence_role_arn" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy application
+    runs-on: ubuntu-latest
+    needs: [candidate, apply]
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      frontend_bundle: ${{ steps.frontend.outputs.bundle }}
+      invalidation_id: ${{ steps.invalidate.outputs.invalidation_id }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci --legacy-peer-deps
-      - name: Production Angular build
-        working-directory: frontend
-        run: npm run build -- --configuration=production
-      - name: Guard against secrets in bundle
+      - name: Build production frontend
         working-directory: frontend
         run: |
           set -euo pipefail
-          OUT="dist/frontend/browser"
-          test -d "$OUT"
-          if grep -R -n -E -i 'AKIA[0-9A-Z]{16}|aws_secret_access_key|BEGIN (RSA |EC )?PRIVATE KEY|localhost:8080' "$OUT" ; then
+          npm ci --legacy-peer-deps
+          npm run build -- --configuration=production
+      - name: Validate frontend artifact
+        id: frontend
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          out="dist/frontend/browser"
+          test -d "$out"
+          if grep -R -n -E -i 'AKIA[0-9A-Z]{16}|aws_secret_access_key|BEGIN (RSA |EC )?PRIVATE KEY|localhost:8080' "$out"; then
             echo "Forbidden material found in production bundle"
             exit 1
           fi
-          grep -R -n '8kci5uht3d.execute-api.eu-west-1.amazonaws.com' "$OUT" >/dev/null
-      - uses: aws-actions/configure-aws-credentials@v4
+          grep -R -n '8kci5uht3d.execute-api.eu-west-1.amazonaws.com' "$out" >/dev/null
+          bundle=""
+          for asset in "$out"/main-*.js; do
+            bundle="$(basename "$asset")"
+            break
+          done
+          test -n "$bundle"
+          echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: application-release-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
           audience: sts.amazonaws.com
-      - name: Prove OIDC assumption
+          inline-session-policy: >-
+            {
+              "Version":"2012-10-17",
+              "Statement":[
+                {
+                  "Effect":"Allow",
+                  "Action":["lambda:GetFunction","lambda:GetFunctionConfiguration"],
+                  "Resource":[
+                    "arn:aws:lambda:eu-west-1:912415493331:function:cloudops-prod-api",
+                    "arn:aws:lambda:eu-west-1:912415493331:function:cloudops-prod-worker"
+                  ]
+                },
+                {
+                  "Effect":"Allow",
+                  "Action":["s3:GetBucketLocation","s3:ListBucket"],
+                  "Resource":"arn:aws:s3:::cloudops-prod-web-7be25877"
+                },
+                {
+                  "Effect":"Allow",
+                  "Action":["s3:DeleteObject","s3:GetObject","s3:PutObject"],
+                  "Resource":"arn:aws:s3:::cloudops-prod-web-7be25877/*"
+                },
+                {
+                  "Effect":"Allow",
+                  "Action":["cloudfront:CreateInvalidation","cloudfront:GetDistribution","cloudfront:GetInvalidation"],
+                  "Resource":"arn:aws:cloudfront::912415493331:distribution/E2220NQVG6GU75"
+                }
+              ]
+            }
+      - name: Verify Terraform deployed exact candidate
+        env:
+          CANDIDATE_IMAGE_URI: ${{ needs.candidate.outputs.image_uri }}
         run: |
           set -euo pipefail
-          aws sts get-caller-identity
-          aws sts get-caller-identity --query Arn --output text | grep -q 'assumed-role/cloudops-prod-github-deploy/'
-      - name: Sync SPA to private S3 web bucket
+          caller="$(aws sts get-caller-identity --query Arn --output text)"
+          echo "$caller" | grep -q 'assumed-role/cloudops-prod-github-deploy/'
+          for function_name in cloudops-prod-api cloudops-prod-worker; do
+            resolved="$(aws lambda get-function \
+              --function-name "$function_name" \
+              --query 'Code.ResolvedImageUri' \
+              --output text)"
+            test "$resolved" = "$CANDIDATE_IMAGE_URI"
+          done
+      - name: Sync frontend to private S3
         working-directory: frontend
         run: |
           set -euo pipefail
-          OUT="dist/frontend/browser"
-          # Hashed assets: long cache
-          aws s3 sync "$OUT" "s3://${WEB_BUCKET}/" \
+          out="dist/frontend/browser"
+          aws s3 sync "$out" "s3://${WEB_BUCKET}/" \
             --delete \
             --exclude "index.html" \
             --cache-control "public,max-age=31536000,immutable"
-          # index.html: short/no cache so SPA shell updates immediately
-          aws s3 cp "$OUT/index.html" "s3://${WEB_BUCKET}/index.html" \
+          aws s3 cp "$out/index.html" "s3://${WEB_BUCKET}/index.html" \
             --cache-control "public,max-age=60,must-revalidate" \
             --content-type "text/html"
-      - name: Invalidate CloudFront
+      - name: Invalidate and wait for CloudFront
+        id: invalidate
         run: |
           set -euo pipefail
-          ID="$(aws cloudfront create-invalidation \
-            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+          id="$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --paths "/*" \
             --query 'Invalidation.Id' \
             --output text)"
-          echo "invalidation_id=$ID"
-          # Requires cloudfront:GetInvalidation on deploy role (Phase 16B Part 2 IAM).
-          aws cloudfront get-invalidation \
-            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
-            --id "$ID" \
-            --query 'Invalidation.{Id:Id,Status:Status}' \
-            --output json
           aws cloudfront wait invalidation-completed \
-            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
-            --id "$ID"
-          STATUS="$(aws cloudfront get-invalidation \
-            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
-            --id "$ID" \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$id"
+          status="$(aws cloudfront get-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$id" \
             --query 'Invalidation.Status' \
             --output text)"
-          echo "invalidation_completed=$ID status=$STATUS"
-          test "$STATUS" = "Completed"
-      - name: Post frontend deploy live evidence
+          test "$status" = "Completed"
+          echo "invalidation_id=$id" >> "$GITHUB_OUTPUT"
+
+  evidence:
+    name: Publish authenticated evidence
+    runs-on: ubuntu-latest
+    needs: [candidate, apply, deploy]
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_sha }}
+      - name: Require producer identity from applied Terraform
         env:
-          API_URL: ${{ vars.PUBLIC_API_URL }}
+          API_ENDPOINT: ${{ needs.apply.outputs.api_endpoint }}
+          EVIDENCE_ROLE_ARN: ${{ needs.apply.outputs.evidence_role_arn }}
         run: |
           set -euo pipefail
-          if [ -z "${API_URL:-}" ]; then
-            echo "PUBLIC_API_URL not set; skip dogfood ingest"
-            exit 0
+          [[ "$API_ENDPOINT" =~ ^https://[^/?#]+$ ]]
+          test "$EVIDENCE_ROLE_ARN" = "arn:aws:iam::912415493331:role/cloudops-prod-github-evidence-producer"
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ needs.apply.outputs.evidence_role_arn }}
+          role-session-name: evidence-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+          unset-current-credentials: true
+      - name: Prove evidence producer identity
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity --query Arn --output text \
+            | grep -q 'assumed-role/cloudops-prod-github-evidence-producer/'
+      - name: Post signed deployment evidence
+        env:
+          API_ENDPOINT: ${{ needs.apply.outputs.api_endpoint }}
+          CANDIDATE_DIGEST: ${{ needs.candidate.outputs.digest }}
+          FRONTEND_BUNDLE: ${{ needs.deploy.outputs.frontend_bundle }}
+          INVALIDATION_ID: ${{ needs.deploy.outputs.invalidation_id }}
+        run: |
+          set -euo pipefail
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          jq -n \
+            --arg event_id "evt_release_${GITHUB_RUN_ID}" \
+            --arg occurred_at "$now" \
+            --arg git_sha "$GITHUB_SHA" \
+            --arg workflow_run_id "$GITHUB_RUN_ID" \
+            --arg candidate_digest "$CANDIDATE_DIGEST" \
+            --arg frontend_bundle "$FRONTEND_BUNDLE" \
+            --arg invalidation_id "$INVALIDATION_ID" \
+            '{
+              event_id: $event_id,
+              event_type: "ci.run.completed",
+              occurred_at: $occurred_at,
+              source: "github-actions",
+              schema_version: "1.0",
+              service_id: "cloudops-api",
+              payload: {
+                git_sha: $git_sha,
+                branch: "main",
+                workflow_run_id: $workflow_run_id,
+                workflow_name: "protected-release",
+                workflow_result: "success",
+                candidate_digest: $candidate_digest,
+                frontend_bundle: $frontend_bundle,
+                invalidation_id: $invalidation_id
+              }
+            }' > "$RUNNER_TEMP/release-evidence.json"
+          bash scripts/ci/post-signed-evidence.sh \
+            "$API_ENDPOINT" \
+            "$RUNNER_TEMP/release-evidence.json"
+
+  verify:
+    name: Verify release
+    runs-on: ubuntu-latest
+    needs: [candidate, apply, deploy, evidence]
+    steps:
+      - name: Verify public reads and deployed frontend
+        env:
+          API_ENDPOINT: ${{ needs.apply.outputs.api_endpoint }}
+          CLOUDFRONT_DOMAIN: ${{ needs.apply.outputs.cloudfront_domain }}
+          FRONTEND_BUNDLE: ${{ needs.deploy.outputs.frontend_bundle }}
+        run: |
+          set -euo pipefail
+          for path in health ready status services releases; do
+            curl --fail --silent --show-error "${API_ENDPOINT}/api/v1/${path}" >/dev/null
+          done
+          index="$(curl --fail --silent --show-error "https://${CLOUDFRONT_DOMAIN}/")"
+          grep -q "$FRONTEND_BUNDLE" <<<"$index"
+      - name: Verify anonymous mutations are denied
+        env:
+          API_ENDPOINT: ${{ needs.apply.outputs.api_endpoint }}
+        run: |
+          set -euo pipefail
+          payload='{"event_id":"unsigned-release-check","event_type":"ci.run.completed","occurred_at":"2026-01-01T00:00:00Z","source":"unsigned-check","schema_version":"1.0","service_id":"cloudops-release","payload":{}}'
+          for path in events demo/reset; do
+            status="$(curl --silent --show-error \
+              --output "$RUNNER_TEMP/unsigned-${path//\//-}.json" \
+              --write-out '%{http_code}' \
+              --request POST \
+              --header 'content-type: application/json' \
+              --data "$payload" \
+              "${API_ENDPOINT}/api/v1/${path}")"
+            case "$status" in
+              401|403) ;;
+              *) echo "Unsigned POST /api/v1/${path} returned ${status}"; exit 1 ;;
+            esac
+          done
+
+  drift:
+    name: Check zero Terraform drift
+    runs-on: ubuntu-latest
+    needs: [candidate, verify]
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      TF_VAR_api_image_uri: ${{ needs.candidate.outputs.image_uri }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_sha }}
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          role-session-name: release-drift-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+      - name: Require zero drift
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity --query Arn --output text \
+            | grep -q 'assumed-role/cloudops-prod-github-plan/'
+          terraform init -input=false
+          set +e
+          terraform plan -input=false -no-color -lock=true -detailed-exitcode
+          plan_rc=$?
+          set -e
+          if [ "$plan_rc" -eq 2 ]; then
+            echo "Unexpected Terraform drift after release"
+            exit 1
           fi
-          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          curl -fsS -X POST "${API_URL}/api/v1/events" \
-            -H "content-type: application/json" \
-            -d "{\"event_id\":\"evt_fe_${GITHUB_RUN_ID}\",\"event_type\":\"ci.run.completed\",\"occurred_at\":\"${NOW}\",\"source\":\"github-actions\",\"schema_version\":\"1.0\",\"service_id\":\"cloudops-web\",\"payload\":{\"git_sha\":\"${GITHUB_SHA}\",\"branch\":\"${GITHUB_REF_NAME}\",\"workflow_run_id\":\"${GITHUB_RUN_ID}\",\"workflow_name\":\"${GITHUB_WORKFLOW}\",\"workflow_result\":\"success\",\"surface\":\"frontend-cloudfront\",\"distribution_id\":\"${CLOUDFRONT_DISTRIBUTION_ID}\",\"web_bucket\":\"${WEB_BUCKET}\"}}"
+          exit "$plan_rc"

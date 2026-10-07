@@ -1,51 +1,76 @@
-<h1>System Status</h1>
-<p>This page shows genuine Project B operational metadata when it exists. It does not invent releases.</p>
 @if (vm$ | async; as vm) {
   @if (vm.state === 'loading') {
-    <p class="status" role="status">Loading system status…</p>
-  } @else if (vm.state === 'error') {
-    <p class="error" role="alert">{{ vm.error }}</p>
+    <section class="loading-state" role="status">
+      <span class="loading-mark"></span>
+      <div><h1>System status</h1><p>Loading operational provenance…</p></div>
+    </section>
+  } @else if (vm.state === 'error' && vm.error) {
+    <app-error-state
+      [title]="vm.error.title"
+      [message]="vm.error.message"
+      [code]="vm.error.code"
+      [requestId]="vm.error.requestId"
+      (retry)="retry()"
+    />
   } @else if (vm.status) {
-    <p>
-      <span class="badge live">LIVE PROJECT DATA</span>
-      only appears below when a real pipeline or deploy event has been ingested.
-    </p>
-    <dl class="facts">
-      <div><dt>Service</dt><dd>{{ vm.status.service }} {{ vm.status.version }}</dd></div>
-      <div><dt>Store</dt><dd class="mono">{{ vm.status.store }}</dd></div>
-      @if (vm.status.git_sha) {
-        <div><dt>Process git SHA</dt><dd class="mono">{{ vm.status.git_sha }}</dd></div>
-      }
-    </dl>
-    <p class="muted">{{ vm.status.synthetic_demo_note }}</p>
-    <h2>Live Project Data</h2>
-    @if (vm.status.live_project_data.length === 0) {
-      <p>No live Project B evidence has been recorded yet. Northstar rows remain <strong>SYNTHETIC DEMO</strong>.</p>
-    } @else {
-      <table>
-        <thead>
-          <tr>
-            <th>Kind</th>
-            <th>Git SHA</th>
-            <th>Workflow</th>
-            <th>Result</th>
-            <th>Digest</th>
-            <th>When</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of vm.status.live_project_data; track row.id) {
-            <tr>
-              <td><span class="badge live">{{ row.label }}</span> {{ row.kind }}</td>
-              <td class="mono">{{ row.git_sha || '—' }}</td>
-              <td class="mono">{{ row.workflow_run_id || '—' }}</td>
-              <td>{{ row.workflow_result || row.test_result || row.security_scan_result || '—' }}</td>
-              <td class="mono">{{ row.image_digest || row.artifact_id || '—' }}</td>
-              <td>{{ row.recorded_at | date: 'medium' }}</td>
-            </tr>
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">Operational provenance</p>
+        <h1>System status</h1>
+        <p class="page-intro">Runtime identity and genuine project evidence. This surface does not invent releases or production traffic.</p>
+      </div>
+      <span class="status-chip success readiness-chip"><i></i>API available</span>
+    </div>
+
+    <section class="runtime-panel" [class.local-runtime]="vm.status.store === 'memory'">
+      <div>
+        <p class="eyebrow">{{ vm.status.store === 'memory' ? 'Local development mode' : 'Public AWS mode' }}</p>
+        <h2>{{ vm.status.service }} {{ vm.status.version }}</h2>
+        <p>
+          @if (vm.status.store === 'memory') {
+            Data is process-local and resets when the API restarts. Synthetic Northstar scenarios are computed by the same engines used in production.
+          } @else {
+            Canonical evidence is stored in DynamoDB. Rows labeled LIVE PROJECT DATA originate from ingested project pipeline or deployment events.
           }
-        </tbody>
-      </table>
+        </p>
+      </div>
+      <dl class="mini-facts">
+        <div><dt>Store</dt><dd class="mono">{{ vm.status.store | displayLabel }}</dd></div>
+        <div><dt>Live evidence</dt><dd>{{ vm.status.live_project_data.length }}</dd></div>
+        @if (vm.status.git_sha) {
+          <div><dt>Process SHA</dt><dd class="mono">{{ vm.status.git_sha }}</dd></div>
+        }
+      </dl>
+    </section>
+
+    <div class="truth-note source-truth"><span class="badge synthetic">SYNTHETIC DEMO</span><p>{{ vm.status.synthetic_demo_note }}</p></div>
+
+    <div class="section-heading">
+      <div><p class="eyebrow">Verified provenance</p><h2>Live Project Data</h2></div>
+    </div>
+    @if (vm.status.live_project_data.length === 0) {
+      <section class="empty-state">
+        <h3>No live project evidence in this store</h3>
+        <p>This is expected in local memory mode. Northstar rows remain <strong>SYNTHETIC DEMO</strong>.</p>
+      </section>
+    } @else {
+      <ol class="timeline live-evidence">
+        @for (row of vm.status.live_project_data; track row.id) {
+          <li>
+            <time [attr.datetime]="row.recorded_at">{{ row.recorded_at | date: 'medium' }}</time>
+            <div>
+              <div class="chip-row"><span class="badge live">{{ row.label }}</span><span class="status-chip">{{ row.kind | displayLabel }}</span></div>
+              <strong>{{ row.workflow_name || row.kind }}</strong>
+              <p>
+                Result: {{ row.workflow_result || row.test_result || row.security_scan_result || 'recorded' }}
+                @if (row.workflow_run_id) { · Run <span class="mono">{{ row.workflow_run_id }}</span> }
+              </p>
+              @if (row.git_sha) { <small class="mono">Git {{ row.git_sha }}</small> }
+              @if (row.image_digest) { <small class="mono"> · {{ row.image_digest }}</small> }
+            </div>
+          </li>
+        }
+      </ol>
     }
   }
 }

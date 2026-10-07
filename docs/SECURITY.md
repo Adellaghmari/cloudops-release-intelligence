@@ -7,8 +7,12 @@ Deliberate controls. No security theatre badges.
 - GitHub Actions: OIDC → IAM deploy role (see [CI_CD.md](CI_CD.md)).
 - Lambda: execution roles, not embedded keys.
 - DynamoDB/S3/EventBridge/SQS: resource-scoped IAM.
-- Public demo: read APIs unauthenticated; writes limited to rate-limited demo reset.
-- Ingest: GitHub HMAC and/or IAM-only route, not open to the internet without a secret.
+- Public demo: read APIs remain unauthenticated.
+- Event ingest: `POST /api/v1/events` is configured as an `AWS_IAM` API Gateway route. The application also fails closed outside local mode unless the protected runtime explicitly enables ingest.
+- Demo reset: `POST /api/v1/demo/reset` is configured as an `AWS_IAM` route and remains application-disabled in production. It is available only for bounded local demo use by default.
+- GitHub evidence producer: a dedicated OIDC role can invoke only the exact ingest method/path on this API.
+
+Status: **IMPLEMENTED AND LOCALLY VALIDATED — NOT YET DEPLOYED OR LIVE VERIFIED**.
 
 ## Data protection
 
@@ -27,6 +31,7 @@ Deliberate controls. No security theatre badges.
 - Sanitized error bodies
 - No logging of `Authorization`, webhook signatures, cookies, or env credentials
 - Rate limiting at API Gateway
+- Browser CORS permits public reads, not production evidence writes
 
 ## Supply chain
 
@@ -36,21 +41,37 @@ Deliberate controls. No security theatre badges.
 | Syft | SBOM for the Go image / binaries | Yes |
 | Cosign | Keyless sign/verify on ECR image via GitHub OIDC | Yes if ECR images ship; otherwise omit from README badges |
 
-## Webhooks
+## Producer authentication
 
-HMAC SHA-256 verification. Constant-time compare. Reject missing signatures. Do not echo the payload to logs at debug in prod.
+The selected production design is:
+
+1. GitHub Actions requests a short-lived AWS session through GitHub OIDC.
+2. The ID-qualified repository and `refs/heads/main` subject assume `cloudops-prod-github-evidence-producer`.
+3. The role has only `execute-api:Invoke` for `POST /api/v1/events`.
+4. The workflow signs the canonical event request with SigV4 for `execute-api` in `eu-west-1`.
+5. API Gateway authorizes the request before the existing Go validation and evidence pipeline run.
+
+A secret is never shipped in the Angular bundle. Every browser user could extract such a secret, so it would not authenticate a trusted producer. CORS is defense in depth for browsers, not authentication.
 
 ## Public demo threat model
 
-The demo is intentionally public. Assume hostile clients will call `POST /api/v1/demo/reset` and scrape APIs.
+The demo is intentionally readable. Assume hostile clients will scrape GET APIs and attempt both write routes.
 
 Mitigations:
 
-- Reset only restores the known synthetic set; no arbitrary writes
-- Throttle
+- API Gateway denies unsigned production ingest and demo-reset requests
+- The Go runtime independently denies both writes unless explicitly configured
+- Local reset only restores the known synthetic set; no arbitrary writes
+- API throttling
 - No PII in synthetic data
 - Live metadata is this project's own SHAs and deploy times, not user data
 
-## Known limitations (until implemented)
+## Known limitations
 
-Everything above is specified, not live. See [CV_CLAIMS_MATRIX.md](../CV_CLAIMS_MATRIX.md).
+- The IAM routes, producer role and signed workflow are configured locally but are **not yet deployed**.
+- The protected release derives the producer role ARN and API origin from the applied Terraform outputs; it stores no AWS credential or anonymous fallback.
+- Authentication cannot be called LIVE VERIFIED until an unsigned request is denied and a signed GitHub producer request succeeds in AWS.
+- The GitHub plan and application deploy roles retain AWS managed ReadOnlyAccess for compatibility. The production Terraform apply role is separately bounded and scoped to CloudOps resources.
+- Cosign remains best-effort in the current workflow; do not describe signing as mandatory enforcement.
+
+See [CV_CLAIMS_MATRIX.md](../CV_CLAIMS_MATRIX.md) for verified claim boundaries.

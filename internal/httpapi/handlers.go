@@ -27,6 +27,8 @@ type Handler struct {
 	bus         events.Bus
 	putRaw      func(ctx context.Context, e events.Envelope) error
 	reset       resetGate
+	allowIngest bool
+	allowReset  bool
 }
 
 func (h *Handler) Health(c *gin.Context) {
@@ -83,6 +85,10 @@ func (h *Handler) SystemStatus(c *gin.Context) {
 }
 
 func (h *Handler) ResetDemo(c *gin.Context) {
+	if !h.allowReset {
+		writeError(c, http.StatusForbidden, "DEMO_RESET_FORBIDDEN", "demo reset is disabled for this runtime")
+		return
+	}
 	if h.store == nil {
 		writeError(c, http.StatusServiceUnavailable, "UNAVAILABLE", "store is not configured")
 		return
@@ -98,20 +104,45 @@ func (h *Handler) ResetDemo(c *gin.Context) {
 	c.JSON(http.StatusOK, demoResetResponse{Status: "ok", Reset: "synthetic_northstar", Idempotent: true})
 }
 
+func (h *Handler) Overview(c *gin.Context) {
+	result, err := h.catalog.Overview(c.Request.Context(), time.Now().UTC())
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	releases := make([]releaseSummaryJSON, 0, len(result.Releases))
+	for _, summary := range result.Releases {
+		releases = append(releases, mapReleaseSummary(summary))
+	}
+	c.JSON(http.StatusOK, overviewResponse{
+		AttentionReleaseID: result.AttentionReleaseID.String(),
+		LiveServices:       result.LiveServices,
+		SyntheticServices:  result.SyntheticServices,
+		Releases:           releases,
+	})
+}
+
 func (h *Handler) ListServices(c *gin.Context) {
 	src, err := service.ParseSourceQuery(c.Query("source"))
 	if err != nil {
 		writeDomainError(c, h.logger, err)
 		return
 	}
-	list, err := h.catalog.ListServices(c.Request.Context(), src)
+	list, err := h.catalog.ListServiceSummaries(c.Request.Context(), src)
 	if err != nil {
 		writeDomainError(c, h.logger, err)
 		return
 	}
 	out := make([]serviceJSON, 0, len(list))
 	for _, s := range list {
-		out = append(out, mapService(s))
+		item := mapService(s.Service)
+		item.DependsOnCount = s.DependsOnCount
+		item.DependedByCount = s.DependedByCount
+		item.ReleaseCount = s.ReleaseCount
+		if s.LatestReleaseID != nil {
+			item.LatestReleaseID = s.LatestReleaseID.String()
+		}
+		out = append(out, item)
 	}
 	c.JSON(http.StatusOK, serviceListResponse{Services: out})
 }
@@ -127,10 +158,20 @@ func (h *Handler) GetService(c *gin.Context) {
 		writeDomainError(c, h.logger, err)
 		return
 	}
+	releases, err := h.catalog.ListReleasesForService(c.Request.Context(), id)
+	if err != nil {
+		writeDomainError(c, h.logger, err)
+		return
+	}
+	related := make([]releaseJSON, 0, len(releases))
+	for _, release := range releases {
+		related = append(related, mapRelease(release))
+	}
 	c.JSON(http.StatusOK, serviceDetailResponse{
-		Service:    mapService(detail.Service),
-		DependsOn:  mapDeps(detail.DependsOn),
-		DependedBy: mapDeps(detail.DependedBy),
+		Service:         mapService(detail.Service),
+		DependsOn:       mapDeps(detail.DependsOn),
+		DependedBy:      mapDeps(detail.DependedBy),
+		RelatedReleases: related,
 	})
 }
 
@@ -352,6 +393,10 @@ func (h *Handler) GetReleaseHealth(c *gin.Context) {
 }
 
 func (h *Handler) IngestEvent(c *gin.Context) {
+	if !h.allowIngest {
+		writeError(c, http.StatusForbidden, "INGEST_FORBIDDEN", "event ingestion is disabled for this runtime")
+		return
+	}
 	if h.processor == nil {
 		writeError(c, http.StatusServiceUnavailable, "UNAVAILABLE", "event processor is not configured")
 		return
@@ -423,6 +468,21 @@ func mapRelease(r domain.Release) releaseJSON {
 		Source:      string(r.Source),
 		Scenario:    r.Scenario,
 		CreatedAt:   r.CreatedAt,
+	}
+}
+
+func mapReleaseSummary(summary service.ReleaseSummary) releaseSummaryJSON {
+	return releaseSummaryJSON{
+		ReleaseID: summary.Release.ID.String(), ServiceID: summary.Service.ID.String(),
+		ServiceName: summary.Service.Name, Version: summary.Release.Version, Scenario: summary.Release.Scenario,
+		Source: string(summary.Release.Source), Status: string(summary.Release.Status),
+		RiskScore: summary.Risk.Score, RiskCategory: string(summary.Risk.Category),
+		HealthOverall: summary.Health.Overall, HealthCorrelation: summary.Health.Correlation,
+		PolicyResult: summary.Policy.Result, RollbackStatus: string(summary.Rollback.Status),
+		DirectDependents: len(summary.Impact.DirectDependents),
+		TransitiveImpact: len(summary.Impact.TransitiveDependents), IncidentCount: summary.IncidentCount,
+		AttentionLevel: summary.AttentionLevel, AttentionReasons: summary.AttentionReason,
+		CreatedAt: summary.Release.CreatedAt,
 	}
 }
 

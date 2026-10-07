@@ -1,30 +1,85 @@
 @if (vm$ | async; as vm) {
-  @if (vm.state === 'error' || !vm.detail) {
-    <p class="error" role="alert">{{ vm.error || 'Service unavailable' }}</p>
-  } @else {
-    <p><a routerLink="/services">Services</a></p>
-    <h1>{{ vm.detail.service.name }}</h1>
-    <p>
-      <app-source-badge [source]="vm.detail.service.source" />
-      <span class="mono"> {{ vm.detail.service.id }}</span>
-      · {{ vm.detail.service.criticality }}
-    </p>
-    <p>{{ vm.detail.service.description }}</p>
-    <h2>Depends on</h2>
-    <ul>
-      @for (edge of vm.detail.depends_on; track edge.to) {
-        <li><a [routerLink]="['/services', edge.to]">{{ edge.to }}</a> <span class="muted">({{ edge.kind }})</span></li>
-      } @empty {
-        <li class="muted">No outbound dependencies.</li>
-      }
-    </ul>
-    <h2>Depended on by</h2>
-    <ul>
-      @for (edge of vm.detail.depended_by; track edge.from) {
-        <li><a [routerLink]="['/services', edge.from]">{{ edge.from }}</a></li>
-      } @empty {
-        <li class="muted">No inbound dependents.</li>
-      }
-    </ul>
+  @if (vm.state === 'loading') {
+    <section class="loading-state" role="status">
+      <span class="loading-mark"></span>
+      <div><h1>Service relationships</h1><p>Tracing runtime dependencies…</p></div>
+    </section>
+  } @else if (vm.state === 'error' && vm.error) {
+    <app-error-state
+      [title]="vm.error.title"
+      [message]="vm.error.message"
+      [code]="vm.error.code"
+      [requestId]="vm.error.requestId"
+      backLink="/services"
+      backLabel="Back to Services"
+      (retry)="retry()"
+    />
+  } @else if (vm.detail) {
+    <p class="breadcrumb"><a routerLink="/services">Services</a> / <span class="mono">{{ vm.detail.service.id }}</span></p>
+    <header class="page-heading">
+      <div>
+        <p class="eyebrow">Service impact context</p>
+        <h1>{{ vm.detail.service.name }}</h1>
+        <p>
+          <app-source-badge [source]="vm.detail.service.source" />
+          <span class="mono"> {{ vm.detail.service.id }}</span>
+          · <span class="status-chip" [attr.data-state]="vm.detail.service.criticality">{{ vm.detail.service.criticality | displayLabel }}</span>
+        </p>
+        <p class="page-intro">{{ vm.detail.service.description }}</p>
+      </div>
+    </header>
+
+    <div class="relationship-columns">
+      <section>
+        <p class="eyebrow">This service calls</p>
+        <h2>Upstream dependencies</h2>
+        <div class="relationship-stack">
+          @for (edge of vm.detail.depends_on; track edge.to) {
+            <a class="relationship-row" [routerLink]="['/services', edge.to]">
+              <span><small>From</small><span class="mono">{{ vm.detail.service.id }}</span></span>
+              <i aria-hidden="true">→</i>
+              <span><small>To</small><strong class="mono">{{ edge.to }}</strong></span>
+              <span class="status-chip">{{ edge.kind | displayLabel }}</span>
+            </a>
+          } @empty {
+            <div class="empty-state"><h3>No upstream dependencies</h3><p>No outbound relationship is recorded.</p></div>
+          }
+        </div>
+      </section>
+      <section>
+        <p class="eyebrow">Services that call this</p>
+        <h2>Potentially affected dependents</h2>
+        <div class="relationship-stack">
+          @for (edge of vm.detail.depended_by; track edge.from) {
+            <a class="relationship-row" [routerLink]="['/services', edge.from]">
+              <span><small>From</small><strong class="mono">{{ edge.from }}</strong></span>
+              <i aria-hidden="true">→</i>
+              <span><small>To</small><span class="mono">{{ vm.detail.service.id }}</span></span>
+              <span class="status-chip">{{ edge.kind | displayLabel }}</span>
+            </a>
+          } @empty {
+            <div class="empty-state"><h3>No inbound dependents</h3><p>No other service is currently in this blast radius.</p></div>
+          }
+        </div>
+      </section>
+    </div>
+
+    <section>
+      <p class="eyebrow">Release evidence</p>
+      <h2>Related releases</h2>
+      <div class="release-stack">
+        @for (release of vm.detail.related_releases; track release.id) {
+          <a class="release-row" [routerLink]="['/releases', release.id]">
+            <span>
+              <strong>{{ release.scenario ? (release.scenario | displayLabel) : release.version }}</strong>
+              <small class="mono">{{ release.id }}</small>
+            </span>
+            <span class="status-chip" [attr.data-state]="release.status">{{ release.status | displayLabel }}</span>
+          </a>
+        } @empty {
+          <div class="empty-state"><h3>No releases recorded</h3><p>This service has no release evidence yet.</p></div>
+        }
+      </div>
+    </section>
   }
 }

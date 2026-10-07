@@ -12,10 +12,14 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("APP_VERSION", "")
 	t.Setenv("APP_CORS_ORIGINS", "")
 	t.Setenv("APP_SEED_LOCAL", "")
+	t.Setenv("APP_ALLOW_EVENT_INGEST", "")
+	t.Setenv("APP_ALLOW_DEMO_RESET", "")
 	_ = os.Unsetenv("APP_ENV")
 	_ = os.Unsetenv("APP_HTTP_ADDR")
 	_ = os.Unsetenv("APP_LOG_LEVEL")
 	_ = os.Unsetenv("APP_SEED_LOCAL")
+	_ = os.Unsetenv("APP_ALLOW_EVENT_INGEST")
+	_ = os.Unsetenv("APP_ALLOW_DEMO_RESET")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatal(err)
@@ -28,6 +32,12 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if !cfg.SeedLocalData {
 		t.Fatal("local default should seed")
+	}
+	if !cfg.AllowEventIngest {
+		t.Fatal("local default should allow event ingestion")
+	}
+	if !cfg.AllowDemoReset {
+		t.Fatal("local default should allow bounded demo reset")
 	}
 }
 
@@ -47,5 +57,47 @@ func TestCORSSplit(t *testing.T) {
 	}
 	if len(cfg.CORSOrigins) != 2 {
 		t.Fatalf("origins=%v", cfg.CORSOrigins)
+	}
+}
+
+func TestEventIngestIsSafeByDefaultOutsideLocal(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("APP_ALLOW_EVENT_INGEST", "")
+	t.Setenv("APP_ALLOW_DEMO_RESET", "")
+	_ = os.Unsetenv("APP_ALLOW_EVENT_INGEST")
+	_ = os.Unsetenv("APP_ALLOW_DEMO_RESET")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AllowEventIngest {
+		t.Fatal("non-local runtime must not allow unauthenticated event ingestion by default")
+	}
+	if cfg.AllowDemoReset {
+		t.Fatal("non-local runtime must not allow demo reset by default")
+	}
+}
+
+func TestDemoResetRequiresExplicitNonLocalOverride(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("APP_ALLOW_DEMO_RESET", "true")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.AllowDemoReset {
+		t.Fatal("explicit controlled-runtime reset override was ignored")
+	}
+}
+
+func TestEventIngestCanBeExplicitlyEnabledForControlledRuntime(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("APP_ALLOW_EVENT_INGEST", "true")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.AllowEventIngest {
+		t.Fatal("explicit controlled-runtime override was ignored")
 	}
 }

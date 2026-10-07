@@ -5,7 +5,7 @@ resource "aws_apigatewayv2_api" "http" {
 
   cors_configuration {
     allow_origins = concat(["https://${aws_cloudfront_distribution.web.domain_name}"], var.cors_additional_origins)
-    allow_methods = ["GET", "POST", "OPTIONS"]
+    allow_methods = ["GET", "OPTIONS"]
     allow_headers = ["content-type", "x-request-id", "x-correlation-id"]
     max_age       = 3600
   }
@@ -20,10 +20,27 @@ resource "aws_apigatewayv2_integration" "api" {
 }
 
 resource "aws_apigatewayv2_route" "proxy" {
-  count     = local.deploy_compute ? 1 : 0
-  api_id    = aws_apigatewayv2_api.http[0].id
-  route_key = "$default"
-  target    = "integrations/${aws_apigatewayv2_integration.api[0].id}"
+  count              = local.deploy_compute ? 1 : 0
+  api_id             = aws_apigatewayv2_api.http[0].id
+  route_key          = "GET /api/v1/{proxy+}"
+  authorization_type = "NONE"
+  target             = "integrations/${aws_apigatewayv2_integration.api[0].id}"
+}
+
+resource "aws_apigatewayv2_route" "ingest" {
+  count              = local.deploy_compute ? 1 : 0
+  api_id             = aws_apigatewayv2_api.http[0].id
+  route_key          = "POST /api/v1/events"
+  authorization_type = "AWS_IAM"
+  target             = "integrations/${aws_apigatewayv2_integration.api[0].id}"
+}
+
+resource "aws_apigatewayv2_route" "demo_reset" {
+  count              = local.deploy_compute ? 1 : 0
+  api_id             = aws_apigatewayv2_api.http[0].id
+  route_key          = "POST /api/v1/demo/reset"
+  authorization_type = "AWS_IAM"
+  target             = "integrations/${aws_apigatewayv2_integration.api[0].id}"
 }
 
 resource "aws_apigatewayv2_stage" "prod" {

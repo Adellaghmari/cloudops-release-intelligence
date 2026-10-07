@@ -41,4 +41,19 @@ describe('ApiService', () => {
     expect(failure?.code).toBe('RELEASE_NOT_FOUND');
     expect(failure?.requestId).toBe('req_1');
   });
+
+  it('loads the persisted decision-support overview through the API', () => {
+    let attention = '';
+    api.overview().subscribe((response) => {
+      attention = response.attention_release_id ?? '';
+    });
+    const req = http.expectOne('/api/v1/overview');
+    req.flush({
+      attention_release_id: 'rel_northstar_regression',
+      live_services: 2,
+      synthetic_services: 6,
+      releases: [],
+    });
+    expect(attention).toBe('rel_northstar_regression');
+  });
 });

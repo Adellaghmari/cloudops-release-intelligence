@@ -14,6 +14,7 @@ import {
   RiskResponse,
   ReplayResponse,
   RollbackResponse,
+  OverviewResponse,
   TimelineResponse,
   ServiceDetailResponse,
   ServiceListResponse,
@@ -43,6 +44,10 @@ export class ApiService {
 
   ready(): Observable<ReadyResponse> {
     return this.http.get<ReadyResponse>(`${this.base}/ready`).pipe(catchError(toApiError));
+  }
+
+  overview(): Observable<OverviewResponse> {
+    return this.http.get<OverviewResponse>(`${this.base}/overview`).pipe(catchError(toApiError));
   }
 
   status(): Observable<SystemStatusResponse> {

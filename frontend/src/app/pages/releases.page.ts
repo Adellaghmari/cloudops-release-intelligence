@@ -1,20 +1,41 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { catchError, map, of, startWith } from 'rxjs';
+import { Subject, catchError, map, of, startWith, switchMap } from 'rxjs';
 import { ApiService } from '../core/api.service';
+import { toViewError } from '../core/view-error';
+import { ErrorState } from '../ui/error-state';
 import { SourceBadge } from '../ui/source-badge';
+import { DisplayLabelPipe } from '../ui/display-label.pipe';
 
 @Component({
   selector: 'app-releases-page',
-  imports: [AsyncPipe, RouterLink, SourceBadge],
+  imports: [AsyncPipe, RouterLink, SourceBadge, ErrorState, DisplayLabelPipe],
   templateUrl: './releases.page.html',
 })
 export class ReleasesPage {
   private readonly api = inject(ApiService);
-  readonly vm$ = this.api.listReleases().pipe(
-    map((res) => ({ state: 'ready' as const, releases: res.releases, error: '' })),
-    startWith({ state: 'loading' as const, releases: [], error: '' }),
-    catchError((err) => of({ state: 'error' as const, releases: [], error: err.message })),
+  private readonly reload$ = new Subject<void>();
+
+  readonly vm$ = this.reload$.pipe(
+    startWith(undefined),
+    switchMap(() =>
+      this.api.overview().pipe(
+        map((res) => ({ state: 'ready' as const, releases: res.releases, error: null })),
+        startWith({ state: 'loading' as const, releases: [], error: null }),
+        catchError((error) =>
+          of({
+            state: 'error' as const,
+            releases: [],
+            error: toViewError(error, 'releases'),
+          }),
+        ),
+      ),
+    ),
   );
+
+  retry() {
+    this.reload$.next();
+  }
+
 }

@@ -1,61 +1,142 @@
 @if (vm$ | async; as vm) {
-  <h1>Operations</h1>
   @if (vm.state === 'loading') {
-    <p class="status" role="status">Loading operational catalog…</p>
-  } @else if (vm.state === 'error') {
-    <p class="error" role="alert">{{ vm.error }}</p>
-  } @else {
+    <section class="loading-state" role="status" aria-live="polite">
+      <span class="loading-mark"></span>
+      <div>
+        <h1>Operations</h1>
+        <p>Connecting release evidence…</p>
+      </div>
+    </section>
+  } @else if (vm.state === 'error' && vm.error) {
+    <app-error-state
+      [title]="vm.error.title"
+      [message]="vm.error.message"
+      [code]="vm.error.code"
+      [requestId]="vm.error.requestId"
+      (retry)="retry()"
+    />
+  } @else if (vm.overview) {
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">Release decision support</p>
+        <h1>Operations</h1>
+        <p class="page-intro">Start with the release whose evidence needs attention, then inspect every contributing signal.</p>
+      </div>
+      <span class="status-chip success readiness-chip"><i></i>{{ vm.ready.status | displayLabel }} · {{ vm.health.service || 'API' }}</span>
+    </div>
+
+    @if (vm.attention; as attention) {
+      <section class="attention-panel" aria-labelledby="attention-title">
+        <div class="attention-copy">
+          <div class="attention-state">
+            <span class="attention-pulse" aria-hidden="true"></span>
+            <p class="eyebrow">Needs investigation</p>
+          </div>
+          <h2 id="attention-title">{{ attention.scenario ? (attention.scenario | displayLabel) : attention.version }}</h2>
+          <p class="attention-identity">
+            <app-source-badge [source]="attention.source" />
+            <span class="mono">{{ attention.release_id }}</span> · {{ attention.service_name }}
+          </p>
+          <p class="attention-summary">Post-deployment evidence shows a release that deserves human review before the next operational decision.</p>
+          <div class="chip-row" aria-label="Attention reasons">
+            @for (reason of attention.attention_reasons; track reason) {
+              <span
+                class="status-chip"
+                [class.warning]="reason === 'ROLLBACK_NOT_READY'"
+                [class.danger]="reason !== 'ROLLBACK_NOT_READY'"
+              ><i></i>{{ reasonLabel(reason) }}</span>
+            } @empty {
+              <span class="status-chip success"><i></i>No critical release signal</span>
+            }
+          </div>
+          <p class="decision-disclaimer">Decision support only. The evidence does not represent a recorded human decision.</p>
+          <a class="button primary" [routerLink]="['/releases', attention.release_id]">Investigate release <span aria-hidden="true">→</span></a>
+        </div>
+        <dl class="signal-grid attention-signals">
+          <div class="signal-feature" [attr.data-state]="attention.risk_category">
+            <dt>Release risk</dt>
+            <dd><strong>{{ attention.risk_score }}</strong><span>/ 100</span></dd>
+            <small>{{ attention.risk_category | displayLabel }}</small>
+            <span class="risk-track" aria-hidden="true"><i [style.width.%]="attention.risk_score"></i></span>
+          </div>
+          <div [attr.data-state]="attention.health_overall"><dt>Health</dt><dd>{{ attention.health_overall | displayLabel }}</dd></div>
+          <div [attr.data-state]="attention.policy_result"><dt>Policy gate</dt><dd>{{ attention.policy_result | displayLabel }}</dd></div>
+          <div [attr.data-state]="attention.rollback_status"><dt>Rollback</dt><dd>{{ attention.rollback_status | displayLabel }}</dd></div>
+          <div><dt>Potential impact</dt><dd>{{ attention.direct_dependents + attention.transitive_impact }} services</dd></div>
+          <div [attr.data-state]="attention.incident_count > 0 ? 'INCIDENT' : 'CLEAR'"><dt>Incidents</dt><dd>{{ attention.incident_count }}</dd></div>
+        </dl>
+      </section>
+    }
+
     <section class="stats" aria-label="Catalog counts">
-      <article>
-        <strong>{{ vm.releases.releases.length }}</strong>
-        <span>Releases</span>
+      <article class="metric-evidence">
+        <i aria-hidden="true"></i>
+        <strong>{{ vm.overview.releases.length }}</strong>
+        <span>Evidence-backed releases</span>
       </article>
-      <article>
-        <strong>{{ vm.live }}</strong>
+      <article class="metric-live">
+        <i aria-hidden="true"></i>
+        <strong>{{ vm.overview.live_services }}</strong>
         <span>Live identities</span>
       </article>
-      <article>
-        <strong>{{ vm.synthetic }}</strong>
+      <article class="metric-synthetic">
+        <i aria-hidden="true"></i>
+        <strong>{{ vm.overview.synthetic_services }}</strong>
         <span>Synthetic services</span>
       </article>
-      <article>
-        <strong>{{ vm.ready ? vm.ready.status : '—' }}</strong>
-        <span>{{ vm.health ? vm.health.service + ' ' + vm.health.version : '—' }}</span>
-      </article>
     </section>
-    <h2>Decision surfaces</h2>
-    <p class="muted">Six engines plus the unified Release Evidence Timeline. Northstar rows are SYNTHETIC DEMO; Project B deployment evidence is LIVE PROJECT DATA.</p>
+
+    <div class="section-heading exploration-heading">
+      <div>
+        <p class="eyebrow">Explore the evidence</p>
+        <h2>Decision surfaces</h2>
+        <p class="muted">Six engines plus the unified Release Evidence Timeline. Every surface keeps its source and reasoning inspectable.</p>
+      </div>
+    </div>
     <ul class="surfaces">
-      <li><a [routerLink]="['/releases', 'rel_northstar_payments_demo']" fragment="risk">Release Risk Engine</a></li>
-      <li><a [routerLink]="['/releases', 'rel_northstar_regression']" fragment="health">Deployment Health Comparator</a></li>
-      <li><a [routerLink]="['/releases', 'rel_northstar_blast']" fragment="impact">Change Impact Graph</a></li>
-      <li><a [routerLink]="['/releases', 'rel_northstar_security']" fragment="policy">Release Policy Gate</a></li>
-      <li><a [routerLink]="['/releases', 'rel_northstar_rollback']" fragment="rollback">Rollback Readiness</a></li>
-      <li><a routerLink="/replay">Release Replay</a></li>
-      <li><a [routerLink]="['/releases', 'rel_northstar_payments_demo']" fragment="timeline">Release Evidence Timeline</a></li>
-      <li><a routerLink="/architecture">Architecture</a></li>
-      <li><a routerLink="/status">System Status</a></li>
+      <li data-accent="risk"><a [routerLink]="['/releases', 'rel_northstar_risky_db']" fragment="risk"><span class="surface-code">01</span><span><strong>Release Risk Engine</strong><small>Explain change risk</small></span><i>→</i></a></li>
+      <li data-accent="health"><a [routerLink]="['/releases', 'rel_northstar_regression']" fragment="health"><span class="surface-code">02</span><span><strong>Health Comparator</strong><small>Baseline versus post</small></span><i>→</i></a></li>
+      <li data-accent="impact"><a [routerLink]="['/releases', 'rel_northstar_blast']" fragment="impact"><span class="surface-code">03</span><span><strong>Change Impact Graph</strong><small>Trace blast radius</small></span><i>→</i></a></li>
+      <li data-accent="policy"><a [routerLink]="['/releases', 'rel_northstar_security']" fragment="policy"><span class="surface-code">04</span><span><strong>Release Policy Gate</strong><small>Inspect rule reasoning</small></span><i>→</i></a></li>
+      <li data-accent="rollback"><a [routerLink]="['/releases', 'rel_northstar_rollback']" fragment="rollback"><span class="surface-code">05</span><span><strong>Rollback Readiness</strong><small>Find recovery gaps</small></span><i>→</i></a></li>
+      <li data-accent="replay"><a routerLink="/replay"><span class="surface-code">06</span><span><strong>Release Replay</strong><small>Compare evidence</small></span><i>→</i></a></li>
+      <li data-accent="timeline"><a [routerLink]="['/releases', 'rel_northstar_payments_demo']" fragment="timeline"><span class="surface-code">TL</span><span><strong>Evidence Timeline</strong><small>Follow chronology</small></span><i>→</i></a></li>
+      <li data-accent="system"><a routerLink="/architecture"><span class="surface-code">AR</span><span><strong>Architecture</strong><small>How it works</small></span><i>→</i></a></li>
+      <li data-accent="status"><a routerLink="/status"><span class="surface-code">ST</span><span><strong>System Status</strong><small>Verify provenance</small></span><i>→</i></a></li>
     </ul>
-    <h2>Recent releases</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Release</th>
-          <th>Service</th>
-          <th>Source</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (rel of vm.releases.releases; track rel.id) {
-          <tr>
-            <td><a [routerLink]="['/releases', rel.id]">{{ rel.id }}</a></td>
-            <td>{{ rel.service_id }}</td>
-            <td><app-source-badge [source]="rel.source" /></td>
-            <td>{{ rel.status }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
+    <div class="section-heading release-section-heading">
+      <div><p class="eyebrow">Investigation queue</p><h2>Recent releases</h2></div>
+      <a class="inline-action" routerLink="/releases">View decision index <span aria-hidden="true">→</span></a>
+    </div>
+    <div class="release-stack">
+      @for (rel of vm.overview.releases.slice(0, 5); track rel.release_id) {
+        <a
+          class="release-row"
+          [class.priority]="rel.attention_level === 'CRITICAL_ATTENTION'"
+          [attr.data-health]="rel.health_overall"
+          [attr.data-policy]="rel.policy_result"
+          [attr.data-rollback]="rel.rollback_status"
+          [routerLink]="['/releases', rel.release_id]"
+        >
+          <span class="release-row-identity">
+            <span class="release-priority">{{ rel.attention_level === 'CRITICAL_ATTENTION' ? 'Investigate' : rel.attention_level === 'REVIEW' ? 'Review' : 'Clear' }}</span>
+            <strong>{{ rel.scenario ? (rel.scenario | displayLabel) : rel.version }}</strong>
+            <small><span class="mono">{{ rel.release_id }}</span><span>{{ rel.service_name }}</span></small>
+          </span>
+          <span class="release-signals">
+            <span class="signal-pair"><small>Risk</small><strong>{{ rel.risk_score }}</strong></span>
+            <span class="status-chip" [attr.data-state]="rel.policy_result">{{ rel.policy_result | displayLabel }}</span>
+            <span class="status-chip" [attr.data-state]="rel.health_overall">{{ rel.health_overall | displayLabel }}</span>
+            <span class="status-chip" [attr.data-state]="rel.rollback_status">{{ rel.rollback_status | displayLabel }}</span>
+            <span class="row-arrow" aria-hidden="true">→</span>
+          </span>
+        </a>
+      } @empty {
+        <section class="empty-state">
+          <h3>No release evidence yet</h3>
+          <p>Ingest or seed a release to populate the decision surfaces.</p>
+        </section>
+      }
+    </div>
   }
 }

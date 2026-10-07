@@ -20,7 +20,7 @@ Where the system identifies temporal or statistical relationships it uses operat
 
 ## Product thesis
 
-Delivery telemetry is usually fragmented across Git, CI, deploy tooling, metrics, and incident systems. The missing product is a deterministic engine that turns those fragments into a decision: continue, hold, approve manually, or prepare rollback.
+Delivery telemetry is usually fragmented across Git, CI, deploy tooling, metrics, and incident systems. CloudOps is a deterministic system that connects release evidence to decision support for a human decision: continue, hold, approve manually, or prepare rollback.
 
 The innovation layer is six capabilities, each backed by persisted data and testable logic:
 
@@ -43,14 +43,14 @@ This project is deliberately a different engineering domain from an AI/RAG/Azure
 | IaC | Terraform |
 | CI/CD | GitHub Actions with AWS OIDC |
 | Policy | Open Policy Agent / Rego, embedded in Go |
-| Security scanning | Trivy; Syft SBOM; Cosign keyless signing on images |
-| Tests | Go testing, Angular tests, Cypress, k6 |
+| Security scanning | Trivy; Syft SBOM; best-effort Cosign keyless sign/verify when available |
+| Tests | Go testing, Angular/Vitest tests, Cypress recruiter flow (k6 remains planned) |
 
 No LLMs. No vector databases. "Intelligence" here means deterministic operational analysis.
 
 ## Current status
 
-**PROJECT B COMPLETE.** Public AWS demo is live. Remote Terraform state, GitHub OIDC plan, and a controlled no-op GitHub Terraform apply are LIVE VERIFIED. Production apply remains gated off (`ENABLE_TERRAFORM_APPLY=false`) until a future maintenance window.
+**PROJECT B COMPLETE.** Public AWS demo is live. Remote Terraform state, GitHub OIDC planning, the bounded production Terraform role, and the protected `prod` approval environment are LIVE VERIFIED. PR #1 implements immutable candidate publication and exact saved-plan release orchestration. No product infrastructure apply or application release has occurred yet.
 
 Public demo: [https://d34fwrlm14h6js.cloudfront.net](https://d34fwrlm14h6js.cloudfront.net)
 
@@ -125,7 +125,7 @@ GET http://localhost:8080/api/v1/health
 GET http://localhost:8080/api/v1/services
 GET http://localhost:8080/api/v1/services?source=synthetic
 GET http://localhost:8080/api/v1/releases/rel_northstar_payments_demo
-POST http://localhost:8080/api/v1/events
+POST http://localhost:8080/api/v1/events # enabled by default only in local mode
 ```
 
 Copy `.env.example` to `.env` for local overrides. Do not put credentials in git.
@@ -139,8 +139,8 @@ Target idle cost is a few dollars per month. Serverless on-demand services only 
 ## Known limitations
 
 - Default CloudFront hostname uses AWS’s default certificate behavior (do not claim TLSv1.2_2021 without a custom domain + ACM).
-- GitHub plan/apply roles keep AWS managed ReadOnlyAccess for Terraform refresh — not fully least privilege.
-- Public recruiter demo is intentionally unauthenticated and bounded.
+- The GitHub plan and application deploy roles retain AWS managed ReadOnlyAccess for compatibility; the production Terraform apply role has an independent scoped permission ceiling.
+- Public recruiter read APIs are intentionally unauthenticated. IAM-protected API Gateway ingestion and a dedicated GitHub OIDC producer role are **IMPLEMENTED AND LOCALLY VALIDATED, NOT YET DEPLOYED**; production remains unchanged until a reviewed Terraform apply and producer migration.
 - API Gateway HTTP API does not provide the standalone REST-API X-Ray segment; Lambda X-Ray remains LIVE VERIFIED.
 
 ## License

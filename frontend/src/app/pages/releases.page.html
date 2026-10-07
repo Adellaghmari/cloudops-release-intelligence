@@ -1,33 +1,62 @@
-<h1>Releases</h1>
 @if (vm$ | async; as vm) {
   @if (vm.state === 'loading') {
-    <p class="status" role="status">Loading releases…</p>
-  } @else if (vm.state === 'error') {
-    <p class="error" role="alert">{{ vm.error }}</p>
+    <section class="loading-state" role="status">
+      <span class="loading-mark"></span>
+      <div><h1>Releases</h1><p>Evaluating release evidence…</p></div>
+    </section>
+  } @else if (vm.state === 'error' && vm.error) {
+    <app-error-state
+      [title]="vm.error.title"
+      [message]="vm.error.message"
+      [code]="vm.error.code"
+      [requestId]="vm.error.requestId"
+      (retry)="retry()"
+    />
   } @else {
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Service</th>
-          <th>Version</th>
-          <th>Scenario</th>
-          <th>Status</th>
-          <th>Source</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (rel of vm.releases; track rel.id) {
-          <tr>
-            <td><a [routerLink]="['/releases', rel.id]" class="mono">{{ rel.id }}</a></td>
-            <td>{{ rel.service_id }}</td>
-            <td>{{ rel.version }}</td>
-            <td>{{ rel.scenario || '—' }}</td>
-            <td>{{ rel.status }}</td>
-            <td><app-source-badge [source]="rel.source" /></td>
-          </tr>
-        }
-      </tbody>
-    </table>
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">Release decision index</p>
+        <h1>Releases</h1>
+        <p class="page-intro">Prioritized by policy, post-deployment health, recovery evidence and release risk.</p>
+      </div>
+      <span class="index-note"><strong>{{ vm.releases.length }}</strong> evidence-backed releases</span>
+    </div>
+    <div class="decision-list">
+      @for (rel of vm.releases; track rel.release_id) {
+        <article
+          class="decision-row"
+          [class.critical]="rel.attention_level === 'CRITICAL_ATTENTION'"
+          [attr.data-priority]="rel.attention_level"
+          [attr.data-health]="rel.health_overall"
+          [attr.data-policy]="rel.policy_result"
+          [attr.data-rollback]="rel.rollback_status"
+        >
+          <div class="decision-identity">
+            <div class="chip-row">
+              <app-source-badge [source]="rel.source" />
+              <span class="status-chip" [attr.data-state]="rel.attention_level">
+                {{ rel.attention_level === 'CRITICAL_ATTENTION' ? 'Needs attention' : rel.attention_level === 'REVIEW' ? 'Review' : 'Clear' }}
+              </span>
+            </div>
+            <h2><a [routerLink]="['/releases', rel.release_id]">{{ rel.scenario ? (rel.scenario | displayLabel) : rel.version }}</a></h2>
+            <p class="mono muted">{{ rel.release_id }}</p>
+            <p><a [routerLink]="['/services', rel.service_id]">{{ rel.service_name }}</a> · {{ rel.version }}</p>
+          </div>
+          <dl class="decision-signals">
+            <div [attr.data-state]="rel.risk_category"><dt>Risk</dt><dd><strong>{{ rel.risk_score }}</strong><span>{{ rel.risk_category | displayLabel }}</span></dd></div>
+            <div [attr.data-state]="rel.health_overall"><dt>Health</dt><dd>{{ rel.health_overall | displayLabel }}</dd></div>
+            <div [attr.data-state]="rel.policy_result"><dt>Policy</dt><dd>{{ rel.policy_result | displayLabel }}</dd></div>
+            <div [attr.data-state]="rel.rollback_status"><dt>Rollback</dt><dd>{{ rel.rollback_status | displayLabel }}</dd></div>
+            <div><dt>Impact</dt><dd>{{ rel.direct_dependents + rel.transitive_impact }} services</dd></div>
+          </dl>
+          <a class="button quiet" [routerLink]="['/releases', rel.release_id]">Inspect evidence <span aria-hidden="true">→</span></a>
+        </article>
+      } @empty {
+        <section class="empty-state">
+          <h2>No releases recorded</h2>
+          <p>The release decision index will appear after evidence has been ingested.</p>
+        </section>
+      }
+    </div>
   }
 }
