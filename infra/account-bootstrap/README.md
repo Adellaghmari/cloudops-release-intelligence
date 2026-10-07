@@ -18,3 +18,6 @@ The first apply requires the independently authorized `adel-admin` session.
 Normal application releases then use GitHub OIDC and the protected `prod`
 environment. Never apply this stack from the production Terraform role because
 that would allow the role to change its own permission ceiling.
+
+Bootstrap updates that add Terraform provider read permissions must be applied
+here before resuming a protected application release.
