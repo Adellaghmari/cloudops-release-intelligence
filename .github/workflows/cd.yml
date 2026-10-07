@@ -34,6 +34,9 @@ jobs:
     name: Verify approved main source
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
       - name: Fail closed outside approved release context
         env:
           SOURCE_SHA: ${{ inputs.source_sha }}
@@ -42,7 +45,12 @@ jobs:
           set -euo pipefail
           test "${GITHUB_REF}" = "refs/heads/main"
           test -n "$SOURCE_SHA"
-          test "$SOURCE_SHA" = "${GITHUB_SHA}"
+          if [ "$SOURCE_SHA" = "${GITHUB_SHA}" ]; then
+            :
+          else
+            git fetch origin "$SOURCE_SHA" "$GITHUB_SHA"
+            git merge-base --is-ancestor "$SOURCE_SHA" "$GITHUB_SHA"
+          fi
           test "$ENABLE_TERRAFORM_APPLY" = "true"
           test -n "${TF_VAR_budget_notification_email:-}"
           test -n "${TF_VAR_terraform_state_bucket_arn:-}"
@@ -60,6 +68,8 @@ jobs:
       digest: ${{ steps.publish.outputs.digest }}
       image_uri: ${{ steps.publish.outputs.image_uri }}
       tag: ${{ steps.publish.outputs.tag }}
+    env:
+      SOURCE_SHA: ${{ inputs.source_sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -107,7 +117,7 @@ jobs:
         id: existing
         run: |
           set -euo pipefail
-          tag="sha-${GITHUB_SHA}"
+          tag="sha-${SOURCE_SHA}"
           digest="$(aws ecr batch-get-image \
             --repository-name cloudops-prod-api \
             --image-ids imageTag="$tag" \
@@ -128,10 +138,10 @@ jobs:
           set -euo pipefail
           docker build \
             --target lambda \
-            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
-            -t "${ECR_URL}:sha-${GITHUB_SHA}" \
+            --label "org.opencontainers.image.revision=${SOURCE_SHA}" \
+            -t "${ECR_URL}:sha-${SOURCE_SHA}" \
             .
-          docker image inspect "${ECR_URL}:sha-${GITHUB_SHA}" \
+          docker image inspect "${ECR_URL}:sha-${SOURCE_SHA}" \
             --format 'os={{.Os}} arch={{.Architecture}} user={{.Config.User}} entrypoint={{json .Config.Entrypoint}} cmd={{json .Config.Cmd}}'
       - name: Pull existing immutable candidate
         if: steps.existing.outputs.exists == 'true'
@@ -140,20 +150,20 @@ jobs:
         run: |
           set -euo pipefail
           docker pull "${ECR_URL}@${EXISTING_DIGEST}"
-          docker tag "${ECR_URL}@${EXISTING_DIGEST}" "${ECR_URL}:sha-${GITHUB_SHA}"
+          docker tag "${ECR_URL}@${EXISTING_DIGEST}" "${ECR_URL}:sha-${SOURCE_SHA}"
       - name: Verify candidate source identity
         run: |
           set -euo pipefail
-          revision="$(docker image inspect "${ECR_URL}:sha-${GITHUB_SHA}" \
+          revision="$(docker image inspect "${ECR_URL}:sha-${SOURCE_SHA}" \
             --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
-          test "$revision" = "$GITHUB_SHA"
+          test "$revision" = "$SOURCE_SHA"
       - name: Prove Lambda image contract
-        run: bash scripts/ci/lambda-image-proof.sh "${ECR_URL}:sha-${GITHUB_SHA}"
+        run: bash scripts/ci/lambda-image-proof.sh "${ECR_URL}:sha-${SOURCE_SHA}"
       - name: Scan candidate
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: ${{ env.ECR_URL }}:sha-${{ github.sha }}
+          image-ref: ${{ env.ECR_URL }}:sha-${{ inputs.source_sha }}
           severity: CRITICAL,HIGH
           format: table
           output: trivy-lambda.txt
@@ -162,14 +172,14 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: ${{ env.ECR_URL }}:sha-${{ github.sha }}
+          image-ref: ${{ env.ECR_URL }}:sha-${{ inputs.source_sha }}
           severity: CRITICAL
           exit-code: "1"
           ignore-unfixed: true
       - name: Generate candidate SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
-          image: ${{ env.ECR_URL }}:sha-${{ github.sha }}
+          image: ${{ env.ECR_URL }}:sha-${{ inputs.source_sha }}
           format: spdx-json
           artifact-name: cloudops-lambda-sbom.spdx.json
       - name: Publish candidate and resolve digest
@@ -180,7 +190,7 @@ jobs:
           OIDC_CALLER_ARN: ${{ steps.oidc.outputs.caller_arn }}
         run: |
           set -euo pipefail
-          tag="sha-${GITHUB_SHA}"
+          tag="sha-${SOURCE_SHA}"
           if [ "$CANDIDATE_EXISTS" = "true" ]; then
             digest="$EXISTING_DIGEST"
           else
@@ -195,7 +205,7 @@ jobs:
           image_uri="${ECR_URL}@${digest}"
           mkdir -p release
           jq -n \
-            --arg source_sha "$GITHUB_SHA" \
+            --arg source_sha "$SOURCE_SHA" \
             --arg workflow_run_id "$GITHUB_RUN_ID" \
             --arg repository "$ECR_URL" \
             --arg tag "$tag" \
@@ -256,6 +266,7 @@ jobs:
       run:
         working-directory: infra
     env:
+      SOURCE_SHA: ${{ inputs.source_sha }}
       TF_VAR_api_image_uri: ${{ needs.candidate.outputs.image_uri }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -300,10 +311,10 @@ jobs:
         run: |
           set -euo pipefail
           plan_sha256="$(sha256sum tfplan | awk '{print $1}')"
-          config_tree="$(git rev-parse "${GITHUB_SHA}:infra")"
+          config_tree="$(git rev-parse "${SOURCE_SHA}:infra")"
           artifact_name="release-plan-${GITHUB_RUN_ID}"
           jq -n \
-            --arg source_sha "$GITHUB_SHA" \
+            --arg source_sha "$SOURCE_SHA" \
             --arg candidate_digest "$CANDIDATE_DIGEST" \
             --arg candidate_image_uri "$CANDIDATE_IMAGE_URI" \
             --arg terraform_version "1.10.5" \
@@ -374,6 +385,7 @@ jobs:
           path: infra
       - name: Verify exact plan identity and safety
         env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
           CANDIDATE_DIGEST: ${{ needs.candidate.outputs.digest }}
           CANDIDATE_IMAGE_URI: ${{ needs.candidate.outputs.image_uri }}
           EXPECTED_CONFIG_TREE: ${{ needs.plan.outputs.config_tree }}
@@ -385,15 +397,15 @@ jobs:
           test -f tfplan
           test -f release-metadata.json
           test -n "$EXPECTED_ARTIFACT_DIGEST"
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(jq -r .source_sha release-metadata.json)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(jq -r .source_sha release-metadata.json)" = "$SOURCE_SHA"
           test "$(jq -r .candidate_digest release-metadata.json)" = "$CANDIDATE_DIGEST"
           test "$(jq -r .candidate_image_uri release-metadata.json)" = "$CANDIDATE_IMAGE_URI"
           test "$(jq -r .terraform_version release-metadata.json)" = "1.10.5"
           test "$(jq -r .workflow_run_id release-metadata.json)" = "$GITHUB_RUN_ID"
           test "$(jq -r .workflow_ref release-metadata.json)" = "$GITHUB_WORKFLOW_REF"
           test "$(jq -r .config_tree release-metadata.json)" = "$EXPECTED_CONFIG_TREE"
-          test "$EXPECTED_CONFIG_TREE" = "$(git rev-parse "${GITHUB_SHA}:infra")"
+          test "$EXPECTED_CONFIG_TREE" = "$(git rev-parse "${SOURCE_SHA}:infra")"
           test "$(jq -r .backend_bucket release-metadata.json)" = "cloudops-prod-tfstate-7d9fdd77"
           test "$(jq -r .state_key release-metadata.json)" = "cloudops-release-intelligence/prod/terraform.tfstate"
           test "$(jq -r .plan_sha256 release-metadata.json)" = "$EXPECTED_PLAN_SHA256"
@@ -603,7 +615,7 @@ jobs:
           jq -n \
             --arg event_id "evt_release_${GITHUB_RUN_ID}" \
             --arg occurred_at "$now" \
-            --arg git_sha "$GITHUB_SHA" \
+            --arg git_sha "${{ inputs.source_sha }}" \
             --arg workflow_run_id "$GITHUB_RUN_ID" \
             --arg candidate_digest "$CANDIDATE_DIGEST" \
             --arg frontend_bundle "$FRONTEND_BUNDLE" \
