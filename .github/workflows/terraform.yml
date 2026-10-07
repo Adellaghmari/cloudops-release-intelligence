@@ -1,9 +1,5 @@
-# GitHub Terraform plan/apply.
-#
-# PLAN: push/PR/workflow_dispatch when TERRAFORM_REMOTE_STATE_READY=true (same-repo only).
-# APPLY: workflow_dispatch + apply=true + ENABLE_TERRAFORM_APPLY=true + environment:prod only.
-# Do not use pull_request_target. Fork PRs never get AWS credentials.
-# Do not enable apply on push or pull_request.
+# Terraform preview and zero-drift verification only.
+# Production release apply is owned exclusively by cd.yml.
 
 name: terraform
 
@@ -11,18 +7,17 @@ on:
   pull_request:
     paths:
       - "infra/**"
+      - "scripts/ci/terraform-plan-guard.py"
+      - "scripts/ci/test_terraform_plan_guard.py"
       - ".github/workflows/terraform.yml"
   push:
     branches: [main]
     paths:
       - "infra/**"
+      - "scripts/ci/terraform-plan-guard.py"
+      - "scripts/ci/test_terraform_plan_guard.py"
       - ".github/workflows/terraform.yml"
   workflow_dispatch:
-    inputs:
-      apply:
-        description: "Apply main stack (requires remote state + ENABLE_TERRAFORM_APPLY + prod environment)"
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -32,9 +27,7 @@ permissions:
 env:
   AWS_REGION: eu-west-1
   TF_IN_AUTOMATION: "true"
-  # Non-secret operational inputs (gitignored locally as terraform.tfvars).
   TF_VAR_api_image_uri: ${{ vars.TF_VAR_API_IMAGE_URI }}
-  # Operational contact (not a credential); secret so Actions masks it in logs.
   TF_VAR_budget_notification_email: ${{ secrets.TF_VAR_BUDGET_NOTIFICATION_EMAIL }}
   TF_VAR_terraform_state_bucket_arn: ${{ vars.TF_VAR_TERRAFORM_STATE_BUCKET_ARN }}
   TF_VAR_terraform_state_bucket_name: ${{ vars.TF_VAR_TERRAFORM_STATE_BUCKET_NAME }}
@@ -48,53 +41,50 @@ jobs:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: "1.10.5"
           terraform_wrapper: false
-      - name: Fmt / init / validate (no AWS)
+      - name: Format and validate without AWS
         run: |
           set -euo pipefail
           terraform fmt -check -recursive
           terraform init -backend=false -input=false
           terraform validate
+      - name: Test release plan guard
+        working-directory: .
+        run: python3 -m unittest scripts/ci/test_terraform_plan_guard.py
 
   plan:
     name: terraform-plan
     runs-on: ubuntu-latest
     needs: [fmt-validate]
-    # Skip parallel plan only when the gated apply job will actually run
-    # (avoids S3 lock contention). If apply input is true but the gate is off,
-    # still run plan so fmt/validate/plan remain available.
     if: >
       vars.TERRAFORM_REMOTE_STATE_READY == 'true' &&
       vars.AWS_PLAN_ROLE_ARN != '' &&
-      !(github.event_name == 'workflow_dispatch' &&
-        inputs.apply == true &&
-        vars.ENABLE_TERRAFORM_APPLY == 'true') &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name == github.repository)
     defaults:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: "1.10.5"
           terraform_wrapper: false
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           audience: sts.amazonaws.com
-      - name: Prove plan-role OIDC assumption
+      - name: Prove plan role identity
         run: |
           set -euo pipefail
-          aws sts get-caller-identity
-          aws sts get-caller-identity --query Arn --output text | grep -q 'assumed-role/cloudops-prod-github-plan/'
-      - name: Init / plan against remote state
+          aws sts get-caller-identity --query Arn --output text \
+            | grep -q 'assumed-role/cloudops-prod-github-plan/'
+      - name: Initialize and validate
         run: |
           set -euo pipefail
           test -n "${TF_VAR_api_image_uri:-}"
@@ -103,71 +93,20 @@ jobs:
           terraform init -input=false
           terraform fmt -check -recursive
           terraform validate
-          terraform plan -input=false -no-color -lock=true
-
-  apply:
-    name: terraform-apply
-    runs-on: ubuntu-latest
-    needs: [fmt-validate]
-    # Triple gate: explicit dispatch input + repo variable + production environment.
-    # Never runs on push/PR. Same-job plan must be 0/0/0 or apply is refused.
-    if: >
-      github.event_name == 'workflow_dispatch' &&
-      inputs.apply == true &&
-      vars.ENABLE_TERRAFORM_APPLY == 'true' &&
-      vars.AWS_DEPLOY_ROLE_ARN != '' &&
-      vars.TERRAFORM_REMOTE_STATE_READY == 'true'
-    environment: prod
-    defaults:
-      run:
-        working-directory: infra
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.10.5"
-          terraform_wrapper: false
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          audience: sts.amazonaws.com
-      - name: Prove deploy-role OIDC assumption
+      - name: Preview pull request or main changes
+        if: github.event_name != 'workflow_dispatch'
+        run: terraform plan -input=false -no-color -lock=true
+      - name: Require zero drift
+        if: github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
-          aws sts get-caller-identity
-          aws sts get-caller-identity --query Arn --output text | grep -q 'assumed-role/cloudops-prod-github-deploy/'
-      - name: Controlled same-job no-op plan and apply
-        run: |
-          set -euo pipefail
-          test -n "${TF_VAR_api_image_uri:-}"
-          test -n "${TF_VAR_budget_notification_email:-}"
-          test -n "${TF_VAR_terraform_state_bucket_arn:-}"
-          terraform version
-          terraform init -input=false
-          terraform fmt -check -recursive
-          terraform validate
-
+          test "${GITHUB_REF}" = "refs/heads/main"
           set +e
-          terraform plan -input=false -no-color -lock=true -out=tfplan -detailed-exitcode
+          terraform plan -input=false -no-color -lock=true -detailed-exitcode
           plan_rc=$?
           set -e
-
-          if [ "$plan_rc" -eq 1 ]; then
-            echo "terraform plan failed"
-            exit 1
-          fi
           if [ "$plan_rc" -eq 2 ]; then
-            echo "Refusing apply: newly generated plan is not a no-op (expected 0 add / 0 change / 0 destroy)"
-            terraform show -no-color tfplan | tail -n 100
-            rm -f tfplan
+            echo "Terraform drift detected"
             exit 1
           fi
-
-          echo "Same-job plan is no-op (0 add / 0 change / 0 destroy)"
-          terraform show -no-color tfplan | grep -E 'No changes\.|Plan:' || true
-
-          # Apply the exact tfplan from this job (non-interactive; not -auto-approve on a fresh plan).
-          terraform apply -input=false tfplan
-          echo "Apply completed successfully"
-          rm -f tfplan
+          exit "$plan_rc"

@@ -28,8 +28,8 @@ func Load(ctx context.Context, store repository.Store, now time.Time) error {
 
 func seedServices(ctx context.Context, store repository.Store, now time.Time) error {
 	services := []domain.Service{
-		svc("cloudops-api", "CloudOps API", "This project's Go API identity. Live releases appear when dogfood exists.", domain.CriticalityHigh, domain.DataSourceLive, now),
-		svc("cloudops-web", "CloudOps Web", "This project's Angular console identity. No live release is seeded in Phase 1.", domain.CriticalityModerate, domain.DataSourceLive, now),
+		svc("cloudops-api", "CloudOps API", "Verified Go API identity for this project.", domain.CriticalityHigh, domain.DataSourceLive, now),
+		svc("cloudops-web", "CloudOps Web", "Verified Angular console identity for this project.", domain.CriticalityModerate, domain.DataSourceLive, now),
 		svc("web-storefront", "Web Storefront", "Public storefront BFF", domain.CriticalityHigh, domain.DataSourceSynthetic, now),
 		svc("checkout-api", "Checkout API", "Checkout orchestration", domain.CriticalityCritical, domain.DataSourceSynthetic, now),
 		svc("payments-service", "Payments Service", "Capture and authorize", domain.CriticalityCritical, domain.DataSourceSynthetic, now),

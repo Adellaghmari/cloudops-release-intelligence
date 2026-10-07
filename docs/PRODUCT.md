@@ -10,7 +10,7 @@ It is not a CI dashboard, not a metrics explorer, and not a ticket tracker with 
 | --- | --- |
 | Product name | CloudOps Release Intelligence |
 | Tagline | Change. Risk. Impact. Recovery. |
-| Core capability | Release Causality Engine (operational correlation, not scientific proof) |
+| Core capability | Release decision support: change, risk, impact, policy and recovery evidence |
 | Public audience | Recruiters and hiring engineers; unauthenticated demo |
 | Data | Synthetic Northstar Commerce scenarios + labeled real metadata from this project's own pipeline |
 

@@ -7,7 +7,7 @@ Single region: `eu-west-1`.
 | Piece | Mechanism |
 | --- | --- |
 | Angular SPA | S3 + CloudFront, SHA-prefixed assets, `index.html` at origin root |
-| Go API | Lambda URL via API Gateway HTTP API, CloudFront `/api/*` behavior |
+| Go API | Lambda behind API Gateway HTTP API; the frontend uses the API Gateway URL directly in the public build |
 | Worker | SQS-triggered Lambda, same image different `CMD` |
 | Data | DynamoDB + S3 raw bucket |
 | Bus | EventBridge custom bus |
@@ -19,11 +19,14 @@ Portfolio default is **local → prod**. There is no mandatory staging account.
 Immutable path:
 
 1. Merge to `main`
-2. Image `repo:sha-xxxxxxxx` and digest `sha256:...`
-3. Terraform / AWS API updates Lambda code to that digest
-4. Frontend files uploaded under `web/<sha>/`; `index.html` rewritten to those hashed bundles
-5. Smoke tests hit the public URL
-6. Evidence event ingested for dogfood
+2. Manually dispatch the protected release for that exact `main` SHA
+3. Build, scan, and publish image `repo:sha-<full-sha>` once, then resolve its immutable digest
+4. Generate and inspect a saved Terraform plan bound to that digest
+5. Obtain `prod` environment approval and apply that exact plan
+6. Terraform updates both Lambda functions to the planned digest
+7. Build and upload the frontend, then wait for CloudFront invalidation
+8. Assume the dedicated GitHub OIDC evidence producer role and send a SigV4 signed canonical event to the IAM protected ingest route
+9. Verify the live release and require a zero change Terraform drift plan
 
 Rollback of **this** product is a Lambda code restore to the previous digest plus S3/CloudFront restore of the previous `index.html` set. The Rollback Readiness engine should eventually describe that for `cloudops-api` / `cloudops-web`.
 
@@ -51,11 +54,20 @@ infra/
 
 No deep module maze for one environment. No one 2,000-line `main.tf`.
 
-State: S3 backend + DynamoDB lock, created once by a bootstrap that is documented. Bootstrap is the only chicken-egg. Until AWS login exists, Terraform is written but not applied.
+State: encrypted S3 backend with the native S3 lockfile (`use_lockfile = true`), created once by a documented bootstrap. The bounded production Terraform role and protected GitHub environment are live verified. Intentional releases use a reviewed saved plan; the apply kill switch remains disabled outside an approved release window.
 
 ## Local
 
-`go run ./cmd/api` + `ng serve` with proxy `/api` → `localhost:8080`. Worker can run as a goroutine in local mode or a second process polling a fake queue. Local mode must be explicit (`APP_ENV=local`) so production never silently no-ops AWS.
+`go run ./cmd/api` + `ng serve` with proxy `/api` → `localhost:8080`. `APP_ENV=local` enables bounded local event ingestion and demo reset; `.env.example` makes both controls explicit. Every non-local runtime defaults both write paths to deny. The production Lambda enables event ingestion only behind the IAM-authorized API Gateway route and keeps demo reset disabled.
+
+## Secure producer migration status
+
+- API Gateway IAM routes, the producer role, SigV4 helper and workflow source are **IMPLEMENTED AND LOCALLY VALIDATED**.
+- They are **NOT YET DEPLOYED** and must not be described as LIVE VERIFIED.
+- A reviewed Terraform plan and apply must create the route and role before evidence posting.
+- The protected release reads the producer role ARN and API endpoint from applied Terraform outputs. No producer repository variables or static credentials are required.
+- Missing outputs fail the release. There is no anonymous fallback.
+- Application deployment follows producer infrastructure, and signed evidence follows application deployment.
 
 ## User-owned steps (later)
 

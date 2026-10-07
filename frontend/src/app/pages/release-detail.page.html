@@ -1,17 +1,69 @@
 @if (vm$ | async; as vm) {
-  @if (vm.state === 'error' || !vm.detail) {
-    <p class="error" role="alert">{{ vm.error || 'Release unavailable' }}</p>
-  } @else {
-    <p><a routerLink="/releases">Releases</a></p>
-    <h1>{{ vm.detail.release.version }}</h1>
-    <p>
-      <app-source-badge [source]="vm.detail.release.source" />
-      <span class="mono"> {{ vm.detail.release.id }}</span>
-      · {{ vm.detail.service.name }}
-    </p>
+  @if (vm.state === 'loading') {
+    <section class="loading-state" role="status">
+      <span class="loading-mark"></span>
+      <div><h1>Release evidence</h1><p>Correlating change, health, impact, policy and recovery…</p></div>
+    </section>
+  } @else if (vm.state === 'error' && vm.error) {
+    <app-error-state
+      [title]="vm.error.title"
+      [message]="vm.error.message"
+      [code]="vm.error.code"
+      [requestId]="vm.error.requestId"
+      backLink="/releases"
+      backLabel="Back to Releases"
+      (retry)="retry()"
+    />
+  } @else if (vm.detail) {
+    <p class="breadcrumb"><a routerLink="/releases">Releases</a> / <span class="mono">{{ vm.detail.release.id }}</span></p>
+    <header class="release-header" id="overview" tabindex="-1">
+      <div>
+        <p class="eyebrow">Release evidence object</p>
+        <h1>{{ vm.detail.release.version }}</h1>
+        <p class="release-identity-line">
+          <app-source-badge [source]="vm.detail.release.source" />
+          <span class="mono"> {{ vm.detail.release.id }}</span>
+          · <a [routerLink]="['/services', vm.detail.service.id]">{{ vm.detail.service.name }}</a>
+        </p>
+      </div>
+      <a class="button secondary" routerLink="/replay" [queryParams]="{ a: vm.releaseId }">Compare release <span aria-hidden="true">↔</span></a>
+    </header>
 
-    <section id="overview">
-      <h2>Overview</h2>
+    <section class="decision-brief" aria-labelledby="decision-brief-title">
+      <div class="decision-brief-copy">
+        <p class="eyebrow">Decision brief</p>
+        <h2 id="decision-brief-title">
+          @if (vm.policy.data?.result === 'BLOCK') {
+            Policy blocked — evidence needs attention
+          } @else if (vm.health.data?.overall === 'SEVERELY_DEGRADED') {
+            Post-deployment health needs attention
+          } @else {
+            Inspect the evidence before a human decision
+          }
+        </h2>
+        <p class="decision-disclaimer">Decision support only. No human release decision is recorded by this view.</p>
+      </div>
+      <dl class="signal-grid decision-brief-signals">
+        <div [attr.data-state]="vm.risk.data?.category"><dt>Risk</dt><dd>{{ vm.risk.data ? vm.risk.data.score + ' · ' + (vm.risk.data.category | displayLabel) : 'Unavailable' }}</dd></div>
+        <div [attr.data-state]="vm.health.data?.overall"><dt>Health</dt><dd>{{ vm.health.data ? (vm.health.data.overall | displayLabel) : 'Unavailable' }}</dd></div>
+        <div [attr.data-state]="vm.policy.data?.result"><dt>Policy</dt><dd>{{ vm.policy.data ? (vm.policy.data.result | displayLabel) : 'Unavailable' }}</dd></div>
+        <div [attr.data-state]="vm.rollback.data?.status"><dt>Rollback</dt><dd>{{ vm.rollback.data ? (vm.rollback.data.status | displayLabel) : 'Unavailable' }}</dd></div>
+        <div><dt>Potential impact</dt><dd>{{ vm.impact.data ? vm.impact.data.direct_dependents.length + vm.impact.data.transitive_dependents.length + ' services' : 'Unavailable' }}</dd></div>
+      </dl>
+    </section>
+
+    <nav class="section-nav" aria-label="Release evidence sections">
+      <a [routerLink]="[]" fragment="overview">Overview</a>
+      <a [routerLink]="[]" fragment="risk">Risk</a>
+      <a [routerLink]="[]" fragment="health">Health</a>
+      <a [routerLink]="[]" fragment="impact">Impact</a>
+      <a [routerLink]="[]" fragment="policy">Policy</a>
+      <a [routerLink]="[]" fragment="rollback">Rollback</a>
+      <a [routerLink]="[]" fragment="timeline">Timeline</a>
+    </nav>
+
+    <details class="evidence-section" open>
+      <summary><span>Overview</span><small>Change, CI and deployment</small></summary>
       <dl class="facts">
         <div><dt>Git SHA</dt><dd class="mono">{{ vm.detail.release.git_sha }}</dd></div>
         <div><dt>Environment</dt><dd>{{ vm.detail.release.environment }}</dd></div>
@@ -19,136 +71,204 @@
         <div><dt>Created</dt><dd>{{ vm.detail.release.created_at | date: 'medium' }}</dd></div>
       </dl>
       @if (vm.detail.commit) {
-        <p>{{ vm.detail.commit.message }} — {{ vm.detail.commit.author }} ({{ vm.detail.commit.files_changed }} files)</p>
+        <p>{{ vm.detail.commit.message }} — {{ vm.detail.commit.author }} ({{ vm.detail.commit.files_changed }} files, +{{ vm.detail.commit.lines_added }} / -{{ vm.detail.commit.lines_deleted }})</p>
       }
       @if (vm.detail.deployment) {
-        <p>Deployment {{ vm.detail.deployment.status }} to {{ vm.detail.deployment.target }}</p>
+        <p>Deployment {{ vm.detail.deployment.status }} to <span class="mono">{{ vm.detail.deployment.target }}</span></p>
       }
       @if (vm.detail.ci_run) {
-        <p>CI {{ vm.detail.ci_run.workflow_name }}: {{ vm.detail.ci_run.status }}</p>
+        <p>CI {{ vm.detail.ci_run.workflow_name }}: <strong>{{ vm.detail.ci_run.status }}</strong></p>
       }
-    </section>
+    </details>
 
-    <section id="risk">
-      <h2>Risk</h2>
-      @if (vm.risk) {
-        <p><strong>{{ vm.risk.score }} / 100</strong> {{ vm.risk.category }}</p>
-        <p class="muted">{{ vm.risk.disclaimer }}</p>
-        <table>
-          <thead><tr><th>Factor</th><th>Points</th><th>Why</th></tr></thead>
-          <tbody>
-            @for (f of vm.risk.factors; track f.code) {
-              <tr>
-                <td>{{ f.label }}</td>
-                <td>{{ f.omitted ? '—' : '+' + f.points }}</td>
-                <td>{{ f.rationale }} <span class="mono muted">{{ f.input }}</span></td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      } @else {
-        <p class="muted">Risk assessment unavailable.</p>
+    <details id="risk" class="evidence-section" open tabindex="-1">
+      <summary><span>Release Risk Engine</span><small>Factor decomposition</small></summary>
+      @if (vm.risk.data; as risk) {
+        <div class="section-lede evidence-lede">
+          <div class="risk-score" [attr.data-state]="risk.category">
+            <span><strong>{{ risk.score }}</strong><small>/ 100</small></span>
+            <div><b>{{ risk.category | displayLabel }}</b><span>Composite release risk</span></div>
+          </div>
+          <div class="evidence-context">
+            <p>{{ risk.disclaimer }}</p>
+            <small class="meta">Model {{ risk.model_version }} · assessed {{ risk.assessed_at | date: 'medium' }}</small>
+          </div>
+        </div>
+        <div class="table-scroll" tabindex="0">
+          <table class="evidence-table risk-table">
+            <thead><tr><th>Factor</th><th>Points</th><th>Why</th></tr></thead>
+            <tbody>
+              @for (f of risk.factors; track f.code) {
+                <tr [class.omitted]="f.omitted">
+                  <td><strong>{{ f.label }}</strong><small class="mono">{{ f.code }}</small></td>
+                  <td><span class="points">{{ f.omitted ? '—' : '+' + f.points }}</span></td>
+                  <td>{{ f.rationale }} <span class="mono muted">{{ f.input }}</span></td>
+                </tr>
+              } @empty {
+                <tr><td colspan="3">No risk factors were available.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else if (vm.risk.error; as error) {
+        <div class="inline-error"><strong>{{ error.title }}</strong><p>{{ error.message }}</p><small>{{ error.requestId }}</small></div>
       }
-    </section>
-    <section id="health">
-      <h2>Health</h2>
-      @if (vm.health) {
-        <p><strong>{{ vm.health.overall }}</strong> · {{ vm.health.correlation }}</p>
-        <p class="muted">{{ vm.health.disclaimer }}</p>
-        <ul>
-          @for (r of vm.health.reasons; track r) {
-            <li>{{ r }}</li>
-          }
+    </details>
+
+    <details id="health" class="evidence-section" open tabindex="-1">
+      <summary><span>Deployment Health Comparator</span><small>Baseline versus post-deploy</small></summary>
+      @if (vm.health.data; as health) {
+        <div class="section-lede evidence-lede">
+          <div class="verdict-block" [attr.data-state]="health.overall">
+            <span class="verdict-label">Health transition</span>
+            <strong>{{ health.overall | displayLabel }}</strong>
+            <small>{{ health.correlation | displayLabel }}</small>
+          </div>
+          <div class="evidence-context">
+            <p>{{ health.disclaimer }}</p>
+            <small class="meta">
+            Baseline {{ health.baseline_from | date: 'short' }}–{{ health.baseline_to | date: 'shortTime' }}
+            · Post {{ health.post_from | date: 'short' }}–{{ health.post_to | date: 'shortTime' }}
+            · Model {{ health.model_version }}
+            </small>
+          </div>
+        </div>
+        <ul class="reason-list">
+          @for (reason of health.reasons; track reason) { <li>{{ reason }}</li> }
         </ul>
-        <table>
-          <thead><tr><th>Metric</th><th>Baseline</th><th>Post</th><th>Δ</th><th>Verdict</th></tr></thead>
-          <tbody>
-            @for (m of vm.health.metrics; track m.name) {
-              <tr>
-                <td>{{ m.name }}</td>
-                <td>{{ m.available ? m.baseline : '—' }}</td>
-                <td>{{ m.available ? m.post : '—' }}</td>
-                <td>{{ m.available ? m.abs_delta : '—' }}</td>
-                <td>{{ m.verdict }} — {{ m.reason }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      } @else {
-        <p class="muted">Health comparison unavailable.</p>
+        <div class="table-scroll" tabindex="0">
+          <table class="evidence-table health-table">
+            <thead><tr><th>Metric</th><th>Baseline</th><th>Post</th><th>Delta</th><th>Verdict</th></tr></thead>
+            <tbody>
+              @for (metric of health.metrics; track metric.name) {
+                <tr [attr.data-state]="metric.verdict">
+                  <td><strong>{{ metric.name | displayLabel }}</strong></td>
+                  <td>{{ metric.available ? metric.baseline : '—' }}</td>
+                  <td>{{ metric.available ? metric.post : '—' }}</td>
+                  <td><span class="delta-value">{{ metric.available ? metric.abs_delta : '—' }}</span></td>
+                  <td><span class="status-chip" [attr.data-state]="metric.verdict">{{ metric.verdict | displayLabel }}</span><small>{{ metric.reason }}</small></td>
+                </tr>
+              } @empty {
+                <tr><td colspan="5">No comparable health windows were available.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else if (vm.health.error; as error) {
+        <div class="inline-error"><strong>{{ error.title }}</strong><p>{{ error.message }}</p><small>{{ error.requestId }}</small></div>
       }
-    </section>
-    <section id="impact">
-      <h2>Potential impact</h2>
-      @if (vm.impact) {
-        <p class="muted">{{ vm.impact.disclaimer }}</p>
-        <p>Direct dependents: {{ vm.impact.direct_dependents.join(', ') || 'none' }}</p>
-        <p>Transitive dependents: {{ vm.impact.transitive_dependents.join(', ') || 'none' }}</p>
-        <app-impact-graph [graph]="vm.impact" />
-      } @else {
-        <p class="muted">Potential impact graph unavailable.</p>
+    </details>
+
+    <details id="impact" class="evidence-section" open tabindex="-1">
+      <summary><span>Change Impact Graph</span><small>Potential blast radius</small></summary>
+      @if (vm.impact.data; as impact) {
+        <p class="muted">{{ impact.disclaimer }}</p>
+        @if (impact.unknown) {
+          <div class="inline-notice">Dependency evidence is incomplete; potential impact is unknown.</div>
+        } @else if (impact.empty) {
+          <div class="empty-state"><h3>No dependent services</h3><p>No potential blast radius was found in the persisted graph.</p></div>
+        } @else {
+          <app-impact-graph [graph]="impact" />
+        }
+        @if (impact.cycles.length > 0) {
+          <div class="inline-notice">Dependency cycles detected: {{ impact.cycles.join(' · ') }}</div>
+        }
+      } @else if (vm.impact.error; as error) {
+        <div class="inline-error"><strong>{{ error.title }}</strong><p>{{ error.message }}</p><small>{{ error.requestId }}</small></div>
       }
-    </section>
-    <section id="policy">
-      <h2>Policy</h2>
-      @if (vm.policy) {
-        <p><strong>{{ vm.policy.result }}</strong> · {{ vm.policy.phase }} · {{ vm.policy.policy_version }}</p>
-        <table>
-          <thead><tr><th>Rule</th><th>Result</th><th>Why</th></tr></thead>
-          <tbody>
-            @for (r of vm.policy.rules; track r.id) {
-              <tr>
-                <td class="mono">{{ r.id }}</td>
-                <td>{{ r.skipped ? 'SKIPPED' : r.result }}</td>
-                <td>{{ r.message }} <span class="mono muted">{{ r.input_excerpt }}</span></td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      } @else {
-        <p class="muted">Policy evaluation unavailable.</p>
+    </details>
+
+    <details id="policy" class="evidence-section" open tabindex="-1">
+      <summary><span>Release Policy Gate</span><small>Versioned policy reasoning</small></summary>
+      @if (vm.policy.data; as policy) {
+        <div class="section-lede evidence-lede">
+          <div class="verdict-block" [attr.data-state]="policy.result">
+            <span class="verdict-label">Gate result</span>
+            <strong>{{ policy.result | displayLabel }}</strong>
+            <small>{{ policy.phase | displayLabel }}</small>
+          </div>
+          <div class="evidence-context">
+            <p>Versioned policy output with the exact evaluated inputs kept visible.</p>
+            <small class="meta">Policy {{ policy.policy_version }} · evaluated {{ policy.evaluated_at | date: 'medium' }}</small>
+          </div>
+        </div>
+        <div class="table-scroll" tabindex="0">
+          <table class="evidence-table policy-table">
+            <thead><tr><th>Rule</th><th>Result</th><th>Why</th></tr></thead>
+            <tbody>
+              @for (rule of policy.rules; track rule.id) {
+                <tr [attr.data-state]="rule.skipped ? 'SKIPPED' : rule.result">
+                  <td class="mono">{{ rule.id }}</td>
+                  <td><span class="status-chip" [attr.data-state]="rule.skipped ? 'SKIPPED' : rule.result">{{ (rule.skipped ? 'SKIPPED' : rule.result) | displayLabel }}</span></td>
+                  <td>{{ rule.message }} <span class="mono muted">{{ rule.input_excerpt }}</span></td>
+                </tr>
+              } @empty {
+                <tr><td colspan="3">No policy rules were evaluated.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else if (vm.policy.error; as error) {
+        <div class="inline-error"><strong>{{ error.title }}</strong><p>{{ error.message }}</p><small>{{ error.requestId }}</small></div>
       }
-    </section>
-    <section id="rollback">
-      <h2>Rollback</h2>
-      @if (vm.rollback) {
-        <p><strong>{{ vm.rollback.status }}</strong></p>
-        <p class="muted">{{ vm.rollback.disclaimer }}</p>
-        <table>
-          <thead><tr><th>Check</th><th>State</th><th>Detail</th></tr></thead>
-          <tbody>
-            @for (s of vm.rollback.signals; track s.id) {
-              <tr>
-                <td class="mono">{{ s.id }}</td>
-                <td>{{ s.not_applicable ? 'N/A' : (s.missing ? 'UNKNOWN' : (s.ok ? 'OK' : 'MISSING')) }}</td>
-                <td>{{ s.detail }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      } @else {
-        <p class="muted">Rollback readiness unavailable.</p>
+    </details>
+
+    <details id="rollback" class="evidence-section" open tabindex="-1">
+      <summary><span>Rollback Readiness</span><small>Recovery prerequisites</small></summary>
+      @if (vm.rollback.data; as rollback) {
+        <div class="section-lede evidence-lede">
+          <div class="verdict-block" [attr.data-state]="rollback.status">
+            <span class="verdict-label">Recovery evidence</span>
+            <strong>{{ rollback.status | displayLabel }}</strong>
+            <small>Operational readiness</small>
+          </div>
+          <div class="evidence-context">
+            <p>{{ rollback.disclaimer }}</p>
+            <small class="meta">Model {{ rollback.model_version }} · assessed {{ rollback.assessed_at | date: 'medium' }}</small>
+          </div>
+        </div>
+        <div class="table-scroll" tabindex="0">
+          <table class="evidence-table rollback-table">
+            <thead><tr><th>Check</th><th>State</th><th>Detail</th></tr></thead>
+            <tbody>
+              @for (signal of rollback.signals; track signal.id) {
+                <tr [attr.data-state]="signal.not_applicable ? 'N_A' : (signal.missing ? 'MISSING' : (signal.ok ? 'OK' : 'NOT_READY'))">
+                  <td class="mono">{{ signal.id }}</td>
+                  <td><span class="check-state"><i aria-hidden="true">{{ signal.not_applicable ? '–' : (signal.missing ? '!' : (signal.ok ? '✓' : '×')) }}</i>{{ signal.not_applicable ? 'N/A' : (signal.missing ? 'Missing' : (signal.ok ? 'Ready' : 'Not ready')) }}</span></td>
+                  <td>{{ signal.detail }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="3">No rollback evidence was available.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else if (vm.rollback.error; as error) {
+        <div class="inline-error"><strong>{{ error.title }}</strong><p>{{ error.message }}</p><small>{{ error.requestId }}</small></div>
       }
-    </section>
-    <section id="timeline">
-      <h2>Timeline</h2>
-      @if (vm.timeline) {
-        <table>
-          <thead><tr><th>When</th><th>Type</th><th>ID</th></tr></thead>
-          <tbody>
-            @for (e of vm.timeline.entries; track e.event_id) {
-              <tr>
-                <td>{{ e.occurred_at | date: 'medium' }}</td>
-                <td>{{ e.event_type }}</td>
-                <td class="mono">{{ e.event_id }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-        <p><a routerLink="/replay">Compare with another release</a></p>
-      } @else {
-        <p class="muted">Timeline unavailable.</p>
+    </details>
+
+    <details id="timeline" class="evidence-section" open tabindex="-1">
+      <summary><span>Release Evidence Timeline</span><small>Chronological evidence</small></summary>
+      @if (vm.timeline.data; as timeline) {
+        <ol class="timeline">
+          @for (entry of timeline.entries; track entry.event_id) {
+            <li>
+              <time [attr.datetime]="entry.occurred_at">{{ entry.occurred_at | date: 'medium' }}</time>
+              <div class="timeline-entry">
+                <strong>{{ entry.summary }}</strong>
+                <p><span class="event-type">{{ entry.event_type | displayLabel }}</span><span>Produced by {{ entry.producer }}</span></p>
+                <small class="mono">Event {{ entry.event_id }}</small>
+              </div>
+            </li>
+          } @empty {
+            <li class="empty-state"><div><strong>No timeline evidence</strong><p>No release events have been recorded.</p></div></li>
+          }
+        </ol>
+        <p><a class="button" routerLink="/replay" [queryParams]="{ a: vm.releaseId }">Compare with another release</a></p>
+      } @else if (vm.timeline.error; as error) {
+        <div class="inline-error"><strong>{{ error.title }}</strong><p>{{ error.message }}</p><small>{{ error.requestId }}</small></div>
       }
-    </section>
+    </details>
   }
 }

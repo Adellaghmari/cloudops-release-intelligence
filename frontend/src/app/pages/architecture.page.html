@@ -1,16 +1,48 @@
-<h1>Architecture</h1>
-<p>Public recruiter demo stack as verified in AWS for Project B. Rows mark what is live versus still hardening work.</p>
-<table>
-  <thead>
-    <tr><th>Layer</th><th>LIVE VERIFIED</th><th>Still hardening</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>Frontend</td><td>Angular 21 SPA on private S3 + CloudFront OAC</td><td>Custom domain / ACM cert for stricter TLS reporting</td></tr>
-    <tr><td>Backend</td><td>API Gateway → Go Lambda → DynamoDB</td><td>GitHub Terraform apply (local state only)</td></tr>
-    <tr><td>Events</td><td>EventBridge → SQS → Go worker → DynamoDB</td><td>Remote Terraform state</td></tr>
-    <tr><td>Analysis</td><td>Risk, health, impact, policy, rollback, timeline, replay</td><td>—</td></tr>
-    <tr><td>Supply chain</td><td>GitHub Actions OIDC, Trivy, Syft, Cosign keyless, ECR digest</td><td>—</td></tr>
-    <tr><td>Evidence labels</td><td>LIVE PROJECT DATA vs SYNTHETIC DEMO (Northstar)</td><td>—</td></tr>
-  </tbody>
-</table>
-<p class="muted">Northstar Commerce rows are SYNTHETIC DEMO only. Live identities and deployment metadata belong to this portfolio product.</p>
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">How it works</p>
+    <h1>Verified architecture</h1>
+    <p class="page-intro">CloudOps connects release evidence to decision support for a human decision. It is a deterministic release intelligence system, not an AI assistant or deployment dashboard.</p>
+  </div>
+</div>
+
+<section class="capability-grid" aria-label="Release intelligence capabilities">
+  <article><span>01</span><h2>Release Risk</h2><p>Explainable factor scoring from change, service and operational evidence.</p></article>
+  <article><span>02</span><h2>Health Comparator</h2><p>Baseline versus post-deployment signals with cautious correlation.</p></article>
+  <article><span>03</span><h2>Change Impact</h2><p>Direct and transitive blast radius from persisted dependencies.</p></article>
+  <article><span>04</span><h2>Policy Gate</h2><p>Versioned OPA/Rego rules with inspectable reasoning.</p></article>
+  <article><span>05</span><h2>Rollback Readiness</h2><p>Recovery prerequisites, missing evidence and operational gaps.</p></article>
+  <article><span>06</span><h2>Release Replay</h2><p>Deterministic comparison of two persisted release snapshots.</p></article>
+</section>
+
+<section class="architecture-flow">
+  <p class="eyebrow">Evidence path</p>
+  <h2>From change event to inspectable release evidence</h2>
+  <p>The Release Evidence Timeline unifies producer, event type and chronology so every decision-support signal remains traceable.</p>
+  <div class="flow">
+    <span>Producer</span><b>→</b><span>API Gateway</span><b>→</b><span>Go API</span><b>→</b><span>DynamoDB + S3</span><b>→</b><span>EventBridge</span><b>→</b><span>SQS worker</span><b>→</b><span>Analysis</span>
+  </div>
+</section>
+
+<div class="table-scroll architecture-matrix" tabindex="0">
+  <table class="evidence-table">
+    <thead>
+      <tr><th>Layer</th><th>Current implementation</th><th>Remaining proof or hardening</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="maturity-state verified">Live verified</span><strong>Frontend</strong></td><td>Angular 21 SPA on private S3 behind CloudFront OAC</td><td>Optional custom domain and ACM certificate</td></tr>
+      <tr><td><span class="maturity-state local">Implemented locally</span><strong>Backend</strong></td><td>API Gateway → Go Lambda → DynamoDB</td><td>IAM-protected ingest is implemented locally; not yet deployed or live verified</td></tr>
+      <tr><td><span class="maturity-state verified">Live verified</span><strong>Events</strong></td><td>EventBridge → SQS → Go worker → DynamoDB, with DLQ</td><td>Expose truthful worker/queue health when a read model exists</td></tr>
+      <tr><td><span class="maturity-state implemented">Implemented</span><strong>Analysis</strong></td><td>Risk, health, impact, policy, rollback, timeline and replay</td><td>Define stored-assessment freshness before changing the read path</td></tr>
+      <tr><td><span class="maturity-state verified">Live verified</span><strong>Observability</strong></td><td>Structured logs, CloudWatch and Lambda X-Ray tracing</td><td>API Gateway HTTP API has no standalone REST-API X-Ray segment</td></tr>
+      <tr><td><span class="maturity-state verified">Live verified</span><strong>Terraform</strong></td><td>Encrypted remote S3 state with native lockfile; controlled no-op GitHub apply verified</td><td>Apply gate remains disabled; narrow managed ReadOnlyAccess</td></tr>
+      <tr><td><span class="maturity-state implemented">Configured</span><strong>Supply chain</strong></td><td>GitHub OIDC, Trivy, Syft, ECR digest; Cosign attempted and verified when available</td><td>Make signing mandatory after reliability is proven</td></tr>
+      <tr><td><span class="maturity-state verified">Verified</span><strong>Evidence labels</strong></td><td>LIVE PROJECT DATA versus SYNTHETIC DEMO</td><td>No live release is invented</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<section class="truth-note">
+  <h2>Data contract</h2>
+  <p>Northstar Commerce releases are <strong>SYNTHETIC DEMO</strong>. They exercise the real engines but are not production traffic. This project's verified pipeline and deployment evidence is <strong>LIVE PROJECT DATA</strong>. Phase-one demo seeding never creates a live release.</p>
+</section>

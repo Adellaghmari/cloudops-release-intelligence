@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { Shell } from './layout/shell';
 import { ArchitecturePage } from './pages/architecture.page';
 import { OverviewPage } from './pages/overview.page';
+import { NotFoundPage } from './pages/not-found.page';
 import { ReleaseDetailPage } from './pages/release-detail.page';
 import { ReleasesPage } from './pages/releases.page';
 import { ReplayPage } from './pages/replay.page';
@@ -22,6 +23,7 @@ export const routes: Routes = [
       { path: 'replay', component: ReplayPage },
       { path: 'architecture', component: ArchitecturePage },
       { path: 'status', component: StatusPage },
+      { path: '**', component: NotFoundPage },
     ],
   },
 ];

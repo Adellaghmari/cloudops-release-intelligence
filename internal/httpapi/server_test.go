@@ -27,10 +27,12 @@ func testServer(t *testing.T) http.Handler {
 		t.Fatal(err)
 	}
 	cfg := config.Config{
-		Env:         "local",
-		Version:     "0.1.0-test",
-		ServiceName: "cloudops-api",
-		CORSOrigins: []string{"http://localhost:4200"},
+		Env:              "local",
+		Version:          "0.1.0-test",
+		ServiceName:      "cloudops-api",
+		CORSOrigins:      []string{"http://localhost:4200"},
+		AllowEventIngest: true,
+		AllowDemoReset:   true,
 	}
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	return NewEngineWith(EngineConfig{
@@ -76,6 +78,50 @@ func TestIngestEventIdempotent(t *testing.T) {
 	}
 	if contains(rec.Body.String(), "ValidationException") || contains(rec.Body.String(), "aws") {
 		t.Fatalf("leaked aws error: %s", rec.Body.String())
+	}
+}
+
+func TestEventIngestDisabledByDefault(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := memory.New()
+	cfg := config.Config{Env: "production", ServiceName: "cloudops-api"}
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	h := NewEngineWith(EngineConfig{
+		Config: cfg, Catalog: service.NewCatalog(store), Logger: logger,
+		Processor: events.NewProcessor(store, 3), Store: store,
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/events", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if !contains(rec.Body.String(), "INGEST_FORBIDDEN") {
+		t.Fatalf("body=%s", rec.Body.String())
+	}
+}
+
+func TestConfiguredProductionIngestAcceptsCanonicalProducerEvent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := memory.New()
+	cfg := config.Config{
+		Env: "production", ServiceName: "cloudops-api", AllowEventIngest: true,
+	}
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	h := NewEngineWith(EngineConfig{
+		Config: cfg, Catalog: service.NewCatalog(store), Logger: logger,
+		Processor: events.NewProcessor(store, 3), Store: store,
+	})
+
+	body := `{"event_id":"evt_authenticated_1","event_type":"ci.run.completed","occurred_at":"2026-09-08T12:00:00Z","source":"github-actions","schema_version":"1.0","service_id":"cloudops-api","correlation_id":"corr_authenticated_1"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/events", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -236,6 +282,11 @@ func TestTimelineAndReplay(t *testing.T) {
 	if len(tl.Entries) < 2 {
 		t.Fatalf("timeline=%+v", tl)
 	}
+	for _, entry := range tl.Entries {
+		if entry.Producer == "" || entry.Summary == "" {
+			t.Fatalf("timeline entry lacks recruiter-facing provenance: %+v", entry)
+		}
+	}
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/replay?a=rel_northstar_payments_demo&b=rel_northstar_regression", nil)
 	h.ServeHTTP(rec, req)
@@ -248,6 +299,63 @@ func TestTimelineAndReplay(t *testing.T) {
 	}
 	if len(rp.Fields) == 0 {
 		t.Fatal("expected replay fields")
+	}
+}
+
+func TestOverviewExposesSixDistinctSyntheticScenarios(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/overview", nil)
+	testServer(t).ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var body overviewResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.AttentionReleaseID == "" || len(body.Releases) < 6 {
+		t.Fatalf("overview is not attention-first: %+v", body)
+	}
+
+	byID := make(map[string]releaseSummaryJSON, len(body.Releases))
+	for _, release := range body.Releases {
+		if release.Source != string(domain.DataSourceSynthetic) {
+			t.Fatalf("phase-one overview invented a live release: %+v", release)
+		}
+		byID[release.ReleaseID] = release
+	}
+	require := func(id string) releaseSummaryJSON {
+		t.Helper()
+		release, ok := byID[id]
+		if !ok {
+			t.Fatalf("missing scenario %s", id)
+		}
+		return release
+	}
+
+	safe := require("rel_northstar_payments_demo")
+	if safe.HealthOverall != "STABLE" || safe.RollbackStatus != string(domain.RollbackReady) || safe.PolicyResult == "BLOCK" {
+		t.Fatalf("safe scenario=%+v", safe)
+	}
+	risky := require("rel_northstar_risky_db")
+	if risky.RiskCategory != "HIGH" && risky.RiskCategory != "CRITICAL" {
+		t.Fatalf("risky database scenario=%+v", risky)
+	}
+	regression := require("rel_northstar_regression")
+	if regression.HealthOverall != "SEVERELY_DEGRADED" && regression.HealthOverall != "DEGRADED" {
+		t.Fatalf("regression scenario=%+v", regression)
+	}
+	blast := require("rel_northstar_blast")
+	if blast.DirectDependents+blast.TransitiveImpact == 0 {
+		t.Fatalf("blast-radius scenario=%+v", blast)
+	}
+	security := require("rel_northstar_security")
+	if security.PolicyResult != "BLOCK" {
+		t.Fatalf("security policy scenario=%+v", security)
+	}
+	rollback := require("rel_northstar_rollback")
+	if rollback.RollbackStatus != string(domain.RollbackNotReady) {
+		t.Fatalf("rollback scenario=%+v", rollback)
 	}
 }
 
@@ -390,6 +498,26 @@ func TestDemoResetIsIdempotentAndKeepsLiveIdentities(t *testing.T) {
 	}
 	if len(st.LiveProjectData) != 0 {
 		t.Fatalf("no live evidence should exist yet: %+v", st.LiveProjectData)
+	}
+}
+
+func TestDemoResetDisabledByDefaultOutsideLocal(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := memory.New()
+	cfg := config.Config{Env: "production", ServiceName: "cloudops-api"}
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	h := NewEngineWith(EngineConfig{
+		Config: cfg, Catalog: service.NewCatalog(store), Logger: logger, Store: store,
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/demo/reset", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if !contains(rec.Body.String(), "DEMO_RESET_FORBIDDEN") {
+		t.Fatalf("body=%s", rec.Body.String())
 	}
 }
 
