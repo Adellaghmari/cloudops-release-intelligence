@@ -73,5 +73,3 @@ Mitigations:
 - Authentication cannot be called LIVE VERIFIED until an unsigned request is denied and a signed GitHub producer request succeeds in AWS.
 - The GitHub plan and application deploy roles retain AWS managed ReadOnlyAccess for compatibility. The production Terraform apply role is separately bounded and scoped to CloudOps resources.
 - Cosign remains best-effort in the current workflow; do not describe signing as mandatory enforcement.
-
-See [CV_CLAIMS_MATRIX.md](../CV_CLAIMS_MATRIX.md) for verified claim boundaries.

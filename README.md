@@ -56,8 +56,6 @@ Public demo: [https://d34fwrlm14h6js.cloudfront.net](https://d34fwrlm14h6js.clou
 
 See:
 
-- [PROJECT_STATUS.md](PROJECT_STATUS.md)
-- [CV_CLAIMS_MATRIX.md](CV_CLAIMS_MATRIX.md)
 - [docs/PRODUCT.md](docs/PRODUCT.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/TERRAFORM_STATE.md](docs/TERRAFORM_STATE.md)
