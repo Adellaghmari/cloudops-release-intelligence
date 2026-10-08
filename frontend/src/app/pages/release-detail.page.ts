@@ -1,5 +1,7 @@
-import { AsyncPipe, DatePipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
+import { Component, inject, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   Observable,
@@ -14,21 +16,47 @@ import {
   tap,
 } from 'rxjs';
 import { ApiService } from '../core/api.service';
+import { registerSyntheticDemoTimestamps } from '../core/register-synthetic-timestamps';
+import { SyntheticDemoClock } from '../core/synthetic-demo-clock';
 import { ViewError, toViewError } from '../core/view-error';
 import { ErrorState } from '../ui/error-state';
+import { EvidenceTimePipe } from '../ui/evidence-time.pipe';
 import { ImpactGraph } from '../ui/impact-graph';
 import { SourceBadge } from '../ui/source-badge';
 import { DisplayLabelPipe } from '../ui/display-label.pipe';
+import { VisibleTextPipe } from '../ui/visible-text.pipe';
 
 @Component({
   selector: 'app-release-detail-page',
-  imports: [AsyncPipe, DatePipe, RouterLink, SourceBadge, ImpactGraph, ErrorState, DisplayLabelPipe],
+  imports: [
+    AsyncPipe,
+    RouterLink,
+    SourceBadge,
+    ImpactGraph,
+    ErrorState,
+    DisplayLabelPipe,
+    EvidenceTimePipe,
+    VisibleTextPipe,
+  ],
   templateUrl: './release-detail.page.html',
 })
 export class ReleaseDetailPage {
   private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
+  private readonly demoClock = inject(SyntheticDemoClock);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly reload$ = new Subject<void>();
+
+  readonly activeSection = toSignal(
+    this.route.fragment.pipe(map((fragment) => fragment ?? 'overview')),
+    { initialValue: 'overview' },
+  );
+
+  constructor() {
+    this.route.fragment.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.scrollToFragment();
+    });
+  }
 
   readonly vm$ = combineLatest([
     this.route.paramMap,
@@ -53,7 +81,16 @@ export class ReleaseDetailPage {
               ...evidence,
               error: null,
             })),
-            tap(() => this.scrollToFragment()),
+            tap((vm) => {
+              registerSyntheticDemoTimestamps(this.demoClock, vm.detail, {
+                risk: vm.risk.data,
+                health: vm.health.data,
+                policy: vm.policy.data,
+                rollback: vm.rollback.data,
+                timeline: vm.timeline.data,
+              });
+              this.scrollToFragment();
+            }),
           ),
         ),
         startWith({

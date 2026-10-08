@@ -28,7 +28,7 @@
         <h2>{{ vm.status.service }} {{ vm.status.version }}</h2>
         <p>
           @if (vm.status.store === 'memory') {
-            Data is process-local and resets when the API restarts. Synthetic Northstar scenarios are computed by the same engines used in production.
+            Data is process local and resets when the API restarts. Synthetic Northstar scenarios are computed by the same engines used in production.
           } @else {
             Canonical evidence is stored in DynamoDB. Rows labeled LIVE PROJECT DATA originate from ingested project pipeline or deployment events.
           }
@@ -43,7 +43,7 @@
       </dl>
     </section>
 
-    <div class="truth-note source-truth"><span class="badge synthetic">SYNTHETIC DEMO</span><p>{{ vm.status.synthetic_demo_note }}</p></div>
+    <div class="truth-note source-truth"><span class="badge synthetic">SYNTHETIC DEMO</span><p>{{ vm.status.synthetic_demo_note | visibleText }}</p></div>
 
     <div class="section-heading">
       <div><p class="eyebrow">Verified provenance</p><h2>Live Project Data</h2></div>
@@ -57,7 +57,13 @@
       <ol class="timeline live-evidence">
         @for (row of vm.status.live_project_data; track row.id) {
           <li>
-            <time [attr.datetime]="row.recorded_at">{{ row.recorded_at | date: 'medium' }}</time>
+            <time
+              [attr.datetime]="row.recorded_at"
+              [attr.title]="row.recorded_at"
+            >
+              <span class="time-relative">{{ row.recorded_at | evidenceTime: row.source:'relativeDay' }}</span>
+              <span class="time-exact">{{ row.recorded_at | evidenceTime: row.source:'absolute' }}</span>
+            </time>
             <div>
               <div class="chip-row"><span class="badge live">{{ row.label }}</span><span class="status-chip">{{ row.kind | displayLabel }}</span></div>
               <strong>{{ row.workflow_name || row.kind }}</strong>

@@ -1,20 +1,24 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AsyncPipe } from '@angular/common';
-import { Subject, catchError, forkJoin, map, of, startWith, switchMap } from 'rxjs';
+import { Subject, catchError, forkJoin, map, of, startWith, switchMap, tap } from 'rxjs';
 import { ApiService } from '../core/api.service';
+import { SyntheticDemoClock } from '../core/synthetic-demo-clock';
 import { toViewError } from '../core/view-error';
 import { ErrorState } from '../ui/error-state';
 import { SourceBadge } from '../ui/source-badge';
 import { DisplayLabelPipe } from '../ui/display-label.pipe';
+import { EvidenceTimePipe } from '../ui/evidence-time.pipe';
+import { VisibleTextPipe } from '../ui/visible-text.pipe';
 
 @Component({
   selector: 'app-overview-page',
-  imports: [AsyncPipe, RouterLink, SourceBadge, ErrorState, DisplayLabelPipe],
+  imports: [AsyncPipe, RouterLink, SourceBadge, ErrorState, DisplayLabelPipe, EvidenceTimePipe, VisibleTextPipe],
   templateUrl: './overview.page.html',
 })
 export class OverviewPage {
   private readonly api = inject(ApiService);
+  private readonly demoClock = inject(SyntheticDemoClock);
   private readonly reload$ = new Subject<void>();
 
   readonly vm$ = this.reload$.pipe(
@@ -34,6 +38,15 @@ export class OverviewPage {
             ),
           error: null,
         })),
+        tap((vm) => {
+          if (vm.state === 'ready' && vm.overview) {
+            this.demoClock.noteTimestamps(
+              vm.overview.releases
+                .filter((release) => release.source === 'synthetic')
+                .map((release) => release.created_at),
+            );
+          }
+        }),
         startWith({
           state: 'loading' as const,
           health: null,

@@ -29,8 +29,8 @@
             <span class="status-chip" [attr.data-state]="svc.criticality">{{ svc.criticality | displayLabel }}</span>
           </div>
           <h2><a [routerLink]="['/services', svc.id]">{{ svc.name }}</a></h2>
-          <p class="mono muted">{{ svc.id }}</p>
-          <p>{{ svc.description }}</p>
+          <p class="mono muted">{{ svc.id | visibleText }}</p>
+          <p>{{ svc.description | visibleText }}</p>
           <dl class="mini-facts">
             <div><dt>Depends on</dt><dd>{{ svc.depends_on_count || 0 }}</dd></div>
             <div><dt>Depended on by</dt><dd>{{ svc.depended_by_count || 0 }}</dd></div>

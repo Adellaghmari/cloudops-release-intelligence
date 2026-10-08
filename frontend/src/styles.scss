@@ -530,28 +530,105 @@ th {
   gap: 0.5rem;
 }
 
-.section-nav {
+.release-section-nav {
   position: sticky;
-  top: 0;
-  z-index: 2;
+  top: 0.65rem;
+  z-index: 6;
   display: flex;
-  gap: 0.35rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   overflow-x: auto;
-  margin: 1.25rem 0 0.75rem;
-  padding: 0.55rem;
-  background: color-mix(in srgb, var(--bg), transparent 6%);
-  border-block: 1px solid var(--stroke);
+  margin: 0 0 1.15rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--accent), var(--stroke) 72%);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2), var(--bg) 28%);
+  box-shadow:
+    0 10px 24px rgb(0 0 0 / 22%),
+    inset 0 1px 0 rgb(255 255 255 / 4%);
 }
 
-.section-nav a {
+.release-section-nav a {
   flex: 0 0 auto;
-  padding: 0.35rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.52rem 0.82rem;
   color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
   text-decoration: none;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
-.section-nav a:hover {
-  color: var(--text);
+.release-section-nav a:hover {
+  border-color: var(--stroke-subtle);
+  background: var(--surface-2);
+  color: var(--text-strong);
+}
+
+.release-section-nav a.is-active {
+  border-color: color-mix(in srgb, var(--accent), transparent 42%);
+  background: color-mix(in srgb, var(--accent-muted), transparent 28%);
+  box-shadow: inset 0 -2px 0 var(--accent);
+  color: var(--accent-hover);
+}
+
+.release-section-nav a:focus-visible {
+  border-color: color-mix(in srgb, var(--accent), transparent 35%);
+  outline: 2px solid color-mix(in srgb, var(--accent), transparent 40%);
+  outline-offset: 2px;
+}
+
+.release-list-lens-nav {
+  margin-top: -0.35rem;
+}
+
+.decision-signals > div {
+  transition:
+    background 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
+}
+
+.decision-signals > div.signal-lens-focus {
+  background: color-mix(in srgb, var(--accent-muted), transparent 42%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent), transparent 48%),
+    inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+
+.decision-signals > div.signal-lens-focus::before {
+  height: 3px;
+  background: var(--accent);
+  opacity: 0.95;
+  transition:
+    height 160ms ease,
+    opacity 160ms ease,
+    background 160ms ease;
+}
+
+.decision-signals > div.signal-lens-focus dt {
+  color: var(--accent-hover);
+}
+
+.decision-signals > div.signal-lens-focus dd {
+  color: var(--text-strong);
+}
+
+.release-created {
+  transition:
+    color 160ms ease,
+    font-weight 160ms ease;
+}
+
+.release-created.timeline-lens-focus {
+  color: var(--accent-hover);
+  font-weight: 650;
 }
 
 .evidence-section {
@@ -1324,18 +1401,6 @@ select {
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--violet), transparent 35%);
 }
 
-.service-card {
-  background:
-    radial-gradient(circle at 100% 0, rgb(104 183 232 / 5%), transparent 13rem),
-    var(--surface-1);
-}
-
-.service-card:has(.badge.live) {
-  background:
-    radial-gradient(circle at 100% 0, rgb(96 203 187 / 7%), transparent 13rem),
-    var(--surface-1);
-}
-
 .capability-grid article {
   --capability-accent: var(--info);
   background:
@@ -1480,7 +1545,7 @@ select {
     justify-content: flex-start;
   }
 
-  .section-nav {
+  .release-section-nav {
     margin-inline: -0.75rem;
   }
 
@@ -2251,30 +2316,6 @@ select {
   border-right: 0;
 }
 
-.section-nav {
-  top: 0;
-  z-index: 5;
-  gap: 0.2rem;
-  margin: 0 0 1.1rem;
-  border: 1px solid var(--stroke-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0.35rem;
-  background: color-mix(in srgb, var(--bg), transparent 3%);
-  box-shadow: 0 8px 20px rgb(0 0 0 / 14%);
-}
-
-.section-nav a {
-  border-radius: 4px;
-  padding: 0.42rem 0.7rem;
-  font-size: 0.72rem;
-  font-weight: 650;
-}
-
-.section-nav a:hover {
-  background: var(--surface-2);
-  color: var(--accent-hover);
-}
-
 .evidence-section {
   overflow: hidden;
   margin-bottom: 0.8rem;
@@ -2588,10 +2629,24 @@ select {
 }
 
 .timeline time {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   padding-top: 0.75rem;
   color: var(--text-dim);
   font: 0.67rem/1.45 var(--font-mono);
   text-align: right;
+}
+
+.timeline time .time-relative {
+  color: var(--text-muted);
+  font: 600 0.72rem/1.3 var(--font-sans);
+}
+
+.timeline time .time-exact {
+  color: var(--text-dim);
+  font-size: 0.62rem;
+  line-height: 1.35;
 }
 
 .timeline li > div::before {
@@ -2796,9 +2851,39 @@ select:hover {
   font: 0.74rem/1.45 var(--font-mono);
 }
 
-.comparison-row > .status-chip {
+.comparison-row > .status-chip,
+.comparison-row > summary > .status-chip {
   align-self: center;
   margin: 0 0.7rem;
+}
+
+details.comparison-row > summary {
+  display: grid;
+  grid-template-columns: minmax(155px, 1.2fr) repeat(2, minmax(140px, 1fr)) auto;
+  gap: 0;
+  list-style: none;
+  cursor: pointer;
+}
+
+details.comparison-row > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.comparison-row > summary::marker {
+  content: '';
+}
+
+details.comparison-row[open] > summary {
+  border-bottom: 1px solid var(--stroke-subtle);
+}
+
+.comparison-row-detail {
+  padding: 0.75rem 0.85rem 0.85rem;
+  background: var(--surface-inset);
+}
+
+.comparison-row-detail .mini-facts {
+  margin: 0;
 }
 
 .service-grid {
@@ -2821,17 +2906,6 @@ select:hover {
     background var(--transition-fast);
 }
 
-.service-card::after {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 4rem;
-  height: 1px;
-  background: var(--accent);
-  opacity: 0.45;
-  content: "";
-}
-
 .service-card:hover {
   border-color: var(--stroke-strong);
   background: var(--surface-2);
@@ -2846,6 +2920,12 @@ select:hover {
 .service-card h2 a {
   color: var(--text-strong);
   text-decoration: none;
+}
+
+.release-created {
+  margin: 0.15rem 0 0;
+  color: var(--text-dim);
+  font-size: 0.72rem;
 }
 
 .service-card > p {
@@ -3249,7 +3329,8 @@ select:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .comparison-row {
+  .comparison-row,
+  details.comparison-row > summary {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -3297,7 +3378,7 @@ select:hover {
     border-right: 0;
   }
 
-  .section-nav {
+  .release-section-nav {
     margin-inline: -0.35rem;
   }
 

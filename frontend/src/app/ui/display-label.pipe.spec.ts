@@ -13,6 +13,11 @@ describe('DisplayLabelPipe', () => {
     expect(pipe.transform('CI_RUN_ID')).toBe('CI run ID');
   });
 
+  it('removes visible dashes from human labels', () => {
+    expect(pipe.transform('checkout-api')).toBe('Checkout API');
+    expect(pipe.transform('X-Ray')).toBe('X Ray');
+  });
+
   it('renders absent values explicitly', () => {
     expect(pipe.transform(undefined)).toBe('Unknown');
   });

@@ -15,17 +15,17 @@
       (retry)="retry()"
     />
   } @else if (vm.detail) {
-    <p class="breadcrumb"><a routerLink="/services">Services</a> / <span class="mono">{{ vm.detail.service.id }}</span></p>
+    <p class="breadcrumb"><a routerLink="/services">Services</a> / <span class="mono">{{ vm.detail.service.id | visibleText }}</span></p>
     <header class="page-heading">
       <div>
         <p class="eyebrow">Service impact context</p>
         <h1>{{ vm.detail.service.name }}</h1>
         <p>
           <app-source-badge [source]="vm.detail.service.source" />
-          <span class="mono"> {{ vm.detail.service.id }}</span>
+          <span class="mono"> {{ vm.detail.service.id | visibleText }}</span>
           · <span class="status-chip" [attr.data-state]="vm.detail.service.criticality">{{ vm.detail.service.criticality | displayLabel }}</span>
         </p>
-        <p class="page-intro">{{ vm.detail.service.description }}</p>
+        <p class="page-intro">{{ vm.detail.service.description | visibleText }}</p>
       </div>
     </header>
 
@@ -36,9 +36,9 @@
         <div class="relationship-stack">
           @for (edge of vm.detail.depends_on; track edge.to) {
             <a class="relationship-row" [routerLink]="['/services', edge.to]">
-              <span><small>From</small><span class="mono">{{ vm.detail.service.id }}</span></span>
+              <span><small>From</small><span class="mono">{{ vm.detail.service.id | visibleText }}</span></span>
               <i aria-hidden="true">→</i>
-              <span><small>To</small><strong class="mono">{{ edge.to }}</strong></span>
+              <span><small>To</small><strong class="mono">{{ edge.to | visibleText }}</strong></span>
               <span class="status-chip">{{ edge.kind | displayLabel }}</span>
             </a>
           } @empty {
@@ -52,9 +52,9 @@
         <div class="relationship-stack">
           @for (edge of vm.detail.depended_by; track edge.from) {
             <a class="relationship-row" [routerLink]="['/services', edge.from]">
-              <span><small>From</small><strong class="mono">{{ edge.from }}</strong></span>
+              <span><small>From</small><strong class="mono">{{ edge.from | visibleText }}</strong></span>
               <i aria-hidden="true">→</i>
-              <span><small>To</small><span class="mono">{{ vm.detail.service.id }}</span></span>
+              <span><small>To</small><span class="mono">{{ vm.detail.service.id | visibleText }}</span></span>
               <span class="status-chip">{{ edge.kind | displayLabel }}</span>
             </a>
           } @empty {
@@ -71,8 +71,8 @@
         @for (release of vm.detail.related_releases; track release.id) {
           <a class="release-row" [routerLink]="['/releases', release.id]">
             <span>
-              <strong>{{ release.scenario ? (release.scenario | displayLabel) : release.version }}</strong>
-              <small class="mono">{{ release.id }}</small>
+              <strong>{{ release.scenario ? (release.scenario | displayLabel) : (release.version | displayLabel) }}</strong>
+              <small class="mono">{{ release.id | visibleText }}</small>
             </span>
             <span class="status-chip" [attr.data-state]="release.status">{{ release.status | displayLabel }}</span>
           </a>

@@ -17,11 +17,64 @@
       <div>
         <p class="eyebrow">Release decision index</p>
         <h1>Releases</h1>
-        <p class="page-intro">Prioritized by policy, post-deployment health, recovery evidence and release risk.</p>
+        <p class="page-intro">Prioritized by policy, post deployment health, recovery evidence and release risk.</p>
       </div>
-      <span class="index-note"><strong>{{ vm.releases.length }}</strong> evidence-backed releases</span>
+      <span class="index-note"><strong>{{ vm.releases.length }}</strong> evidence backed releases</span>
     </div>
-    <div class="decision-list">
+
+    <nav class="release-section-nav release-list-lens-nav" aria-label="Release analysis lenses">
+      <a
+        [routerLink]="['/releases']"
+        [queryParams]="lensQuery('overview')"
+        [class.is-active]="vm.lens === 'overview'"
+        [attr.aria-current]="vm.lens === 'overview' ? 'true' : null"
+        >Overview</a
+      >
+      <a
+        [routerLink]="['/releases']"
+        [queryParams]="lensQuery('risk')"
+        [class.is-active]="vm.lens === 'risk'"
+        [attr.aria-current]="vm.lens === 'risk' ? 'true' : null"
+        >Risk</a
+      >
+      <a
+        [routerLink]="['/releases']"
+        [queryParams]="lensQuery('health')"
+        [class.is-active]="vm.lens === 'health'"
+        [attr.aria-current]="vm.lens === 'health' ? 'true' : null"
+        >Health</a
+      >
+      <a
+        [routerLink]="['/releases']"
+        [queryParams]="lensQuery('impact')"
+        [class.is-active]="vm.lens === 'impact'"
+        [attr.aria-current]="vm.lens === 'impact' ? 'true' : null"
+        >Impact</a
+      >
+      <a
+        [routerLink]="['/releases']"
+        [queryParams]="lensQuery('policy')"
+        [class.is-active]="vm.lens === 'policy'"
+        [attr.aria-current]="vm.lens === 'policy' ? 'true' : null"
+        >Policy</a
+      >
+      <a
+        [routerLink]="['/releases']"
+        [queryParams]="lensQuery('rollback')"
+        [class.is-active]="vm.lens === 'rollback'"
+        [attr.aria-current]="vm.lens === 'rollback' ? 'true' : null"
+        >Rollback</a
+      >
+      <a
+        [routerLink]="['/releases']"
+        [queryParams]="lensQuery('timeline')"
+        [class.is-active]="vm.lens === 'timeline'"
+        [attr.aria-current]="vm.lens === 'timeline' ? 'true' : null"
+        >Timeline</a
+      >
+    </nav>
+
+    <div class="decision-list" [attr.data-lens]="vm.lens">
       @for (rel of vm.releases; track rel.release_id) {
         <article
           class="decision-row"
@@ -38,16 +91,17 @@
                 {{ rel.attention_level === 'CRITICAL_ATTENTION' ? 'Needs attention' : rel.attention_level === 'REVIEW' ? 'Review' : 'Clear' }}
               </span>
             </div>
-            <h2><a [routerLink]="['/releases', rel.release_id]">{{ rel.scenario ? (rel.scenario | displayLabel) : rel.version }}</a></h2>
-            <p class="mono muted">{{ rel.release_id }}</p>
-            <p><a [routerLink]="['/services', rel.service_id]">{{ rel.service_name }}</a> · {{ rel.version }}</p>
+            <h2><a [routerLink]="['/releases', rel.release_id]">{{ rel.scenario ? (rel.scenario | displayLabel) : (rel.version | displayLabel) }}</a></h2>
+            <p class="mono muted">{{ rel.release_id | visibleText }}</p>
+            <p><a [routerLink]="['/services', rel.service_id]">{{ rel.service_name }}</a> · {{ rel.version | displayLabel }}</p>
+            <p class="release-created" [class.timeline-lens-focus]="vm.lens === 'timeline'">{{ rel.created_at | evidenceTime: rel.source:'relative' }}</p>
           </div>
           <dl class="decision-signals">
-            <div [attr.data-state]="rel.risk_category"><dt>Risk</dt><dd><strong>{{ rel.risk_score }}</strong><span>{{ rel.risk_category | displayLabel }}</span></dd></div>
-            <div [attr.data-state]="rel.health_overall"><dt>Health</dt><dd>{{ rel.health_overall | displayLabel }}</dd></div>
-            <div [attr.data-state]="rel.policy_result"><dt>Policy</dt><dd>{{ rel.policy_result | displayLabel }}</dd></div>
-            <div [attr.data-state]="rel.rollback_status"><dt>Rollback</dt><dd>{{ rel.rollback_status | displayLabel }}</dd></div>
-            <div><dt>Impact</dt><dd>{{ rel.direct_dependents + rel.transitive_impact }} services</dd></div>
+            <div [class.signal-lens-focus]="lensFocus(vm.lens, 'risk')" [attr.data-state]="rel.risk_category"><dt>Risk</dt><dd><strong>{{ rel.risk_score }}</strong><span>{{ rel.risk_category | displayLabel }}</span></dd></div>
+            <div [class.signal-lens-focus]="lensFocus(vm.lens, 'health')" [attr.data-state]="rel.health_overall"><dt>Health</dt><dd>{{ rel.health_overall | displayLabel }}</dd></div>
+            <div [class.signal-lens-focus]="lensFocus(vm.lens, 'policy')" [attr.data-state]="rel.policy_result"><dt>Policy</dt><dd>{{ rel.policy_result | displayLabel }}</dd></div>
+            <div [class.signal-lens-focus]="lensFocus(vm.lens, 'rollback')" [attr.data-state]="rel.rollback_status"><dt>Rollback</dt><dd>{{ rel.rollback_status | displayLabel }}</dd></div>
+            <div [class.signal-lens-focus]="lensFocus(vm.lens, 'impact')"><dt>Impact</dt><dd>{{ rel.direct_dependents + rel.transitive_impact }} services</dd></div>
           </dl>
           <a class="button quiet" [routerLink]="['/releases', rel.release_id]">Inspect evidence <span aria-hidden="true">→</span></a>
         </article>

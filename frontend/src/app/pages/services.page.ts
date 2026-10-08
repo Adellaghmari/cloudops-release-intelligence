@@ -7,10 +7,11 @@ import { toViewError } from '../core/view-error';
 import { ErrorState } from '../ui/error-state';
 import { SourceBadge } from '../ui/source-badge';
 import { DisplayLabelPipe } from '../ui/display-label.pipe';
+import { VisibleTextPipe } from '../ui/visible-text.pipe';
 
 @Component({
   selector: 'app-services-page',
-  imports: [AsyncPipe, RouterLink, SourceBadge, ErrorState, DisplayLabelPipe],
+  imports: [AsyncPipe, RouterLink, SourceBadge, ErrorState, DisplayLabelPipe, VisibleTextPipe],
   templateUrl: './services.page.html',
 })
 export class ServicesPage {

@@ -1,14 +1,15 @@
 import { Component, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { VisibleTextPipe } from './visible-text.pipe';
 
 @Component({
   selector: 'app-error-state',
-  imports: [RouterLink],
+  imports: [RouterLink, VisibleTextPipe],
   template: `
     <section class="error-state" role="alert">
       <p class="eyebrow">Unable to complete this view</p>
-      <h1>{{ title() }}</h1>
-      <p>{{ message() }}</p>
+      <h1>{{ title() | visibleText }}</h1>
+      <p>{{ message() | visibleText }}</p>
       @if (code() || requestId()) {
         <p class="technical">
           @if (code()) { <span>{{ code() }}</span> }

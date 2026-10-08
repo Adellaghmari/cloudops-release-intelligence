@@ -1,11 +1,12 @@
 import { Pipe, PipeTransform } from '@angular/core';
-
 const preservedTerms = new Map([
   ['api', 'API'],
   ['ci', 'CI'],
   ['id', 'ID'],
   ['n/a', 'N/A'],
   ['sha', 'SHA'],
+  ['x', 'X'],
+  ['ray', 'Ray'],
 ]);
 
 @Pipe({
@@ -20,6 +21,9 @@ export class DisplayLabelPipe implements PipeTransform {
 
     return value
       .trim()
+      .replaceAll('—', ' ')
+      .replaceAll('–', ' ')
+      .replaceAll('-', ' ')
       .replaceAll('_', ' ')
       .toLowerCase()
       .split(/\s+/)

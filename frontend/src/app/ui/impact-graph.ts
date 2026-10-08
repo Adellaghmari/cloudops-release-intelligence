@@ -1,10 +1,12 @@
 import { Component, Input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ImpactResponse } from '../core/models';
+import { stripVisibleDashes } from '../core/visible-text';
+import { DisplayLabelPipe } from './display-label.pipe';
 
 @Component({
   selector: 'app-impact-graph',
-  imports: [RouterLink],
+  imports: [RouterLink, DisplayLabelPipe],
   template: `
     @if (graph; as g) {
       <div class="graph-legend" aria-label="Impact graph legend">
@@ -14,7 +16,7 @@ import { ImpactResponse } from '../core/models';
         <span><i class="transitive_dependent"></i>Transitive dependent</span>
       </div>
       <div class="graph-scroll" tabindex="0">
-        <svg class="impact" viewBox="0 0 720 340" role="img" [attr.aria-label]="'Potential impact from ' + g.changed_service_id">
+        <svg class="impact" viewBox="0 0 720 340" role="img" [attr.aria-label]="'Potential impact from ' + visibleId(g.changed_service_id)">
           <defs>
             <marker id="impact-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" />
@@ -24,10 +26,10 @@ import { ImpactResponse } from '../core/models';
             <line [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2" marker-end="url(#impact-arrow)" />
           }
           @for (n of positions(); track n.id) {
-            <a class="node-link" tabindex="0" [routerLink]="['/services', n.id]" [attr.aria-label]="'Open service ' + n.id">
+            <a class="node-link" tabindex="0" [routerLink]="['/services', n.id]" [attr.aria-label]="'Open service ' + visibleId(n.id)">
               <g class="node">
                 <circle [attr.cx]="n.x" [attr.cy]="n.y" r="20" [attr.class]="n.role" />
-                <text [attr.x]="n.x" [attr.y]="n.y + 35">{{ n.id }}</text>
+                <text [attr.x]="n.x" [attr.y]="n.y + 35">{{ n.id | displayLabel }}</text>
               </g>
             </a>
           }
@@ -36,12 +38,12 @@ import { ImpactResponse } from '../core/models';
       <div class="relationship-lists">
         <p><strong>Direct:</strong>
           @for (id of g.direct_dependents; track id) {
-            <a [routerLink]="['/services', id]">{{ id }}</a>
+            <a [routerLink]="['/services', id]">{{ id | displayLabel }}</a>
           } @empty { none }
         </p>
         <p><strong>Transitive:</strong>
           @for (id of g.transitive_dependents; track id) {
-            <a [routerLink]="['/services', id]">{{ id }}</a>
+            <a [routerLink]="['/services', id]">{{ id | displayLabel }}</a>
           } @empty { none }
         </p>
       </div>
@@ -77,6 +79,10 @@ import { ImpactResponse } from '../core/models';
 })
 export class ImpactGraph {
   @Input({ required: true }) graph!: ImpactResponse;
+
+  visibleId(value: string) {
+    return stripVisibleDashes(value);
+  }
 
   positions() {
     const cols = new Map<number, string[]>();

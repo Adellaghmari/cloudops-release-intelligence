@@ -12,7 +12,7 @@
       <label class="selector-a"><span class="selector-label"><b>A</b> Baseline release</span>
         <select [formControl]="a">
           @for (release of vm.releases; track release.id) {
-            <option [value]="release.id">{{ release.scenario ? (release.scenario | displayLabel) : release.version }} · {{ release.id }}</option>
+            <option [value]="release.id">{{ release.scenario ? (release.scenario | displayLabel) : (release.version | displayLabel) }} · {{ release.id | visibleText }}</option>
           }
         </select>
       </label>
@@ -20,7 +20,7 @@
       <label class="selector-b"><span class="selector-label"><b>B</b> Comparison release</span>
         <select [formControl]="b">
           @for (release of vm.releases; track release.id) {
-            <option [value]="release.id">{{ release.scenario ? (release.scenario | displayLabel) : release.version }} · {{ release.id }}</option>
+            <option [value]="release.id">{{ release.scenario ? (release.scenario | displayLabel) : (release.version | displayLabel) }} · {{ release.id | visibleText }}</option>
           }
         </select>
       </label>
@@ -60,7 +60,7 @@
       <div>
         <p class="eyebrow">Comparison summary</p>
         <h2>{{ vm.changedCount }} evidence fields changed</h2>
-        <p class="comparison-route"><span class="mono">{{ vm.diff.a }}</span><i>→</i><span class="mono">{{ vm.diff.b }}</span></p>
+        <p class="comparison-route"><span class="mono">{{ vm.diff.a | visibleText }}</span><i>→</i><span class="mono">{{ vm.diff.b | visibleText }}</span></p>
       </div>
       <div class="chip-row">
         @for (group of vm.groups; track group.name) {
@@ -78,15 +78,25 @@
           </div>
           <div class="comparison-list">
             @for (field of group.fields; track field.path) {
-              <article class="comparison-row" [class.changed]="field.kind !== 'unchanged'">
-                <div class="comparison-field">
-                  <strong>{{ field.path.split('.')[1] | displayLabel }}</strong>
-                  <small class="mono">{{ field.path }}</small>
+              <details class="comparison-row" [class.changed]="field.kind !== 'unchanged'">
+                <summary>
+                  <div class="comparison-field">
+                    <strong>{{ field.path.split('.')[1] | displayLabel }}</strong>
+                    <small class="mono">{{ field.path | visibleText }}</small>
+                  </div>
+                  <div class="comparison-value value-a"><span class="comparison-label">Release A</span><span>{{ field.a | visibleText }}</span></div>
+                  <div class="comparison-value value-b"><span class="comparison-label">Release B</span><span>{{ field.b | visibleText }}</span></div>
+                  <span class="status-chip" [attr.data-state]="field.kind">{{ field.kind | displayLabel }}</span>
+                </summary>
+                <div class="comparison-row-detail">
+                  <dl class="mini-facts">
+                    <div><dt>Evidence path</dt><dd class="mono">{{ field.path | visibleText }}</dd></div>
+                    <div><dt>Comparison</dt><dd>{{ field.kind | displayLabel }}</dd></div>
+                    <div><dt>Release A value</dt><dd class="mono">{{ field.a | visibleText }}</dd></div>
+                    <div><dt>Release B value</dt><dd class="mono">{{ field.b | visibleText }}</dd></div>
+                  </dl>
                 </div>
-                <div class="comparison-value value-a"><span class="comparison-label">Release A</span><span>{{ field.a }}</span></div>
-                <div class="comparison-value value-b"><span class="comparison-label">Release B</span><span>{{ field.b }}</span></div>
-                <span class="status-chip" [attr.data-state]="field.kind">{{ field.kind | displayLabel }}</span>
-              </article>
+              </details>
             }
           </div>
         </section>

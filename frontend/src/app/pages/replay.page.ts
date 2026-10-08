@@ -18,13 +18,14 @@ import { ReplayField } from '../core/models';
 import { toViewError } from '../core/view-error';
 import { ErrorState } from '../ui/error-state';
 import { DisplayLabelPipe } from '../ui/display-label.pipe';
+import { VisibleTextPipe } from '../ui/visible-text.pipe';
 
 const DEFAULT_BASELINE_RELEASE = 'rel_northstar_payments_demo';
 const DEFAULT_COMPARISON_RELEASE = 'rel_northstar_regression';
 
 @Component({
   selector: 'app-replay-page',
-  imports: [AsyncPipe, ReactiveFormsModule, ErrorState, DisplayLabelPipe],
+  imports: [AsyncPipe, ReactiveFormsModule, ErrorState, DisplayLabelPipe, VisibleTextPipe],
   templateUrl: './replay.page.html',
 })
 export class ReplayPage {

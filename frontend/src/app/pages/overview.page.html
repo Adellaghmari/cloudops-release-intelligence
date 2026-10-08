@@ -22,7 +22,7 @@
         <h1>Operations</h1>
         <p class="page-intro">Start with the release whose evidence needs attention, then inspect every contributing signal.</p>
       </div>
-      <span class="status-chip success readiness-chip"><i></i>{{ vm.ready.status | displayLabel }} · {{ vm.health.service || 'API' }}</span>
+      <span class="status-chip success readiness-chip"><i></i>{{ vm.ready.status | displayLabel }} · {{ (vm.health.service || 'API') | displayLabel }}</span>
     </div>
 
     @if (vm.attention; as attention) {
@@ -32,12 +32,12 @@
             <span class="attention-pulse" aria-hidden="true"></span>
             <p class="eyebrow">Needs investigation</p>
           </div>
-          <h2 id="attention-title">{{ attention.scenario ? (attention.scenario | displayLabel) : attention.version }}</h2>
+          <h2 id="attention-title">{{ attention.scenario ? (attention.scenario | displayLabel) : (attention.version | displayLabel) }}</h2>
           <p class="attention-identity">
             <app-source-badge [source]="attention.source" />
-            <span class="mono">{{ attention.release_id }}</span> · {{ attention.service_name }}
+            <span class="mono">{{ attention.release_id | visibleText }}</span> · {{ attention.service_name }}
           </p>
-          <p class="attention-summary">Post-deployment evidence shows a release that deserves human review before the next operational decision.</p>
+          <p class="attention-summary">Post deployment evidence shows a release that deserves human review before the next operational decision.</p>
           <div class="chip-row" aria-label="Attention reasons">
             @for (reason of attention.attention_reasons; track reason) {
               <span
@@ -72,7 +72,7 @@
       <article class="metric-evidence">
         <i aria-hidden="true"></i>
         <strong>{{ vm.overview.releases.length }}</strong>
-        <span>Evidence-backed releases</span>
+        <span>Evidence backed releases</span>
       </article>
       <article class="metric-live">
         <i aria-hidden="true"></i>
@@ -120,8 +120,8 @@
         >
           <span class="release-row-identity">
             <span class="release-priority">{{ rel.attention_level === 'CRITICAL_ATTENTION' ? 'Investigate' : rel.attention_level === 'REVIEW' ? 'Review' : 'Clear' }}</span>
-            <strong>{{ rel.scenario ? (rel.scenario | displayLabel) : rel.version }}</strong>
-            <small><span class="mono">{{ rel.release_id }}</span><span>{{ rel.service_name }}</span></small>
+            <strong>{{ rel.scenario ? (rel.scenario | displayLabel) : (rel.version | displayLabel) }}</strong>
+            <small><span class="mono">{{ rel.release_id | visibleText }}</span><span>{{ rel.service_name }}</span><span>{{ rel.created_at | evidenceTime: rel.source:'relative' }}</span></small>
           </span>
           <span class="release-signals">
             <span class="signal-pair"><small>Risk</small><strong>{{ rel.risk_score }}</strong></span>
