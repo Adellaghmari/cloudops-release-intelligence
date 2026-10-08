@@ -1,0 +1,128 @@
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Portfolio project</p>
+    <h1>CloudOps Release Intelligence</h1>
+    <p class="page-intro tagline-lede">Change. Risk. Impact. Recovery.</p>
+    <p class="page-intro">
+      A deterministic release intelligence console that connects deployment evidence to human decision support after “deployed”—not an AI assistant, not a generic CI dashboard.
+    </p>
+  </div>
+</div>
+
+<section class="truth-note about-lede">
+  <h2>What problem it solves</h2>
+  <p>
+    Teams often know <em>that</em> a release shipped before they know <em>whether</em> it is safe to keep, widen, or roll back.
+    CloudOps persists release and operational evidence, runs explainable analysis, and surfaces policy and recovery readiness in one inspectable timeline.
+  </p>
+</section>
+
+<section class="architecture-flow">
+  <p class="eyebrow">What I built</p>
+  <h2>End-to-end portfolio system</h2>
+  <p>
+    Angular SPA, Go API and worker on AWS Lambda, event-driven analysis pipeline, Terraform-managed infrastructure, GitHub Actions with OIDC, and OPA/Rego policy gates—designed for low idle cost and truthful evidence labeling.
+  </p>
+</section>
+
+<section class="about-diagram" aria-label="Architecture overview">
+  <p class="eyebrow">Architecture overview</p>
+  <h2>Request and evidence path</h2>
+  <div class="about-diagram-grid">
+    <article>
+      <span class="layer-label">Experience</span>
+      <strong>Angular SPA</strong>
+      <p>CloudFront → private S3 (OAC). Responsive graphite command-center UI.</p>
+    </article>
+    <article>
+      <span class="layer-label">Edge API</span>
+      <strong>API Gateway HTTP API</strong>
+      <p>Go/Gin Lambda handlers; health, read models, and protected ingest routes.</p>
+    </article>
+    <article>
+      <span class="layer-label">State</span>
+      <strong>DynamoDB + S3</strong>
+      <p>Canonical entities and immutable raw event payloads.</p>
+    </article>
+    <article>
+      <span class="layer-label">Async</span>
+      <strong>EventBridge → SQS → worker</strong>
+      <p>Deterministic risk, health, impact, policy, rollback, and timeline enrichment.</p>
+    </article>
+    <article>
+      <span class="layer-label">Ops</span>
+      <strong>CloudWatch + X-Ray</strong>
+      <p>Structured logs and Lambda tracing (HTTP API has no standalone REST X-Ray segment).</p>
+    </article>
+    <article>
+      <span class="layer-label">Delivery</span>
+      <strong>Terraform + GitHub Actions</strong>
+      <p>Remote encrypted state, OIDC roles, protected prod approval, digest-bound apply.</p>
+    </article>
+  </div>
+  <div class="flow about-flow">
+    <span>Browser</span><b>→</b><span>CloudFront</span><b>→</b><span>API Gateway</span><b>→</b><span>Go API</span><b>→</b><span>DynamoDB / S3</span><b>→</b><span>EventBridge</span><b>→</b><span>SQS worker</span><b>→</b><span>Analysis</span>
+  </div>
+</section>
+
+<section class="capability-grid" aria-label="Six product capabilities">
+  <article><span>01</span><h2>Release Risk Engine</h2><p>Explainable factor scoring from change, service, and operational evidence.</p></article>
+  <article><span>02</span><h2>Deployment Health Comparator</h2><p>Baseline versus post-deployment signals with cautious correlation.</p></article>
+  <article><span>03</span><h2>Change Impact Graph</h2><p>Direct and transitive blast radius from persisted dependencies.</p></article>
+  <article><span>04</span><h2>Release Policy Gate</h2><p>Versioned OPA/Rego rules with inspectable allow/deny reasoning.</p></article>
+  <article><span>05</span><h2>Rollback Readiness</h2><p>Recovery prerequisites, missing evidence, and operational gaps.</p></article>
+  <article><span>06</span><h2>Release Replay</h2><p>Deterministic comparison of two persisted release snapshots.</p></article>
+</section>
+
+<section class="architecture-flow">
+  <p class="eyebrow">Release Evidence Timeline</p>
+  <h2>One chronology for every signal</h2>
+  <p>
+    Producer, event type, and timestamps unify pipeline and deployment evidence so risk, health, policy, and rollback views stay traceable to the same release record—not a disconnected chart wall.
+  </p>
+</section>
+
+<section class="about-proof">
+  <p class="eyebrow">Technology stack</p>
+  <h2>Proof points</h2>
+  <ul class="about-tags" aria-label="Technologies used">
+    <li>Angular</li>
+    <li>Go / Gin</li>
+    <li>AWS Lambda</li>
+    <li>API Gateway</li>
+    <li>DynamoDB</li>
+    <li>S3</li>
+    <li>EventBridge</li>
+    <li>SQS</li>
+    <li>CloudFront</li>
+    <li>CloudWatch / X-Ray</li>
+    <li>Terraform</li>
+    <li>GitHub Actions OIDC</li>
+    <li>OPA / Rego</li>
+  </ul>
+</section>
+
+<div class="table-scroll architecture-matrix" tabindex="0">
+  <table class="evidence-table">
+    <thead>
+      <tr><th>Area</th><th>Implementation</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>AWS &amp; IaC</strong></td><td>Single-region stack: Lambda, API Gateway, DynamoDB, S3, EventBridge, SQS, CloudFront, budgets, and IAM—defined in Terraform with remote S3 state and native locking.</td></tr>
+      <tr><td><strong>CI/CD</strong></td><td>GitHub Actions: quality gates on PRs; manual protected release on exact <code>main</code> SHA; OIDC to AWS; immutable container digest bound into saved Terraform plan; <code>prod</code> environment approval before apply.</td></tr>
+      <tr><td><strong>Policy</strong></td><td>Release gate evaluated with embedded OPA/Rego (<code>policies/release_gate.rego</code>); results stored and shown with reasoning.</td></tr>
+      <tr><td><strong>Security</strong></td><td>Short-lived OIDC credentials, bounded apply role, throttling, CORS tied to the frontend origin, optional IAM-protected ingest (configured in repo; deploy posture documented in <code>docs/SECURITY.md</code>).</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<section class="truth-note">
+  <h2>Live project evidence vs synthetic demo data</h2>
+  <p>
+    <strong>Northstar Commerce</strong> scenarios and releases are <strong>SYNTHETIC DEMO DATA</strong>. They exercise the real analysis engines but do not represent a real employer, production company, or customer traffic.
+  </p>
+  <p>
+    This repository’s <strong>CloudOps pipeline and deployment evidence</strong> is <strong>LIVE PROJECT DATA</strong> when labeled as such in the UI—generated from this project’s own AWS deployment and signed workflow paths, not invented releases.
+  </p>
+  <p>Every evidence surface in the console preserves its source label.</p>
+</section>

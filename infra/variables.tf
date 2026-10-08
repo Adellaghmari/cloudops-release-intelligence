@@ -60,6 +60,31 @@ variable "cors_additional_origins" {
   default     = []
 }
 
+variable "frontend_custom_domain" {
+  type        = string
+  description = "Optional custom hostname for the CloudFront distribution (e.g. app.example.com). Leave empty to keep the default *.cloudfront.net URL."
+  default     = ""
+
+  validation {
+    condition     = var.frontend_custom_domain == "" || !can(regex("^https?://", var.frontend_custom_domain))
+    error_message = "frontend_custom_domain must be a bare hostname, not a URL."
+  }
+}
+
+variable "frontend_acm_certificate_arn" {
+  type        = string
+  description = "ACM certificate ARN in us-east-1 for frontend_custom_domain. Required when frontend_custom_domain is set."
+  default     = ""
+
+  validation {
+    condition = (
+      (var.frontend_custom_domain == "" && var.frontend_acm_certificate_arn == "") ||
+      (var.frontend_custom_domain != "" && var.frontend_acm_certificate_arn != "")
+    )
+    error_message = "Set frontend_custom_domain and frontend_acm_certificate_arn together, or leave both empty."
+  }
+}
+
 variable "terraform_state_bucket_arn" {
   type        = string
   description = "ARN of the remote state bucket from infra/bootstrap. Empty skips GitHub state-access policies (set after bootstrap apply)."

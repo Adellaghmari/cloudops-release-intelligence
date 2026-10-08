@@ -13,4 +13,6 @@ locals {
   github_owner_id       = "179922674"
   github_repo_id        = "1361976389"
   github_repo_full_oidc = "${var.github_owner}@${local.github_owner_id}/${var.github_repo}@${local.github_repo_id}"
+
+  use_frontend_custom_domain = var.frontend_custom_domain != "" && var.frontend_acm_certificate_arn != ""
 }
