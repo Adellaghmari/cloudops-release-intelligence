@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { Shell } from './layout/shell';
+import { AboutPage } from './pages/about.page';
 import { ArchitecturePage } from './pages/architecture.page';
 import { OverviewPage } from './pages/overview.page';
 import { NotFoundPage } from './pages/not-found.page';
@@ -22,6 +23,7 @@ export const routes: Routes = [
       { path: 'releases/:id', component: ReleaseDetailPage },
       { path: 'replay', component: ReplayPage },
       { path: 'architecture', component: ArchitecturePage },
+      { path: 'about', component: AboutPage },
       { path: 'status', component: StatusPage },
       { path: '**', component: NotFoundPage },
     ],

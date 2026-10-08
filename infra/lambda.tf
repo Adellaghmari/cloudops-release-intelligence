@@ -25,7 +25,7 @@ resource "aws_lambda_function" "api" {
       EVENT_BUS_NAME         = aws_cloudwatch_event_bus.main.name
       EVENT_SOURCE           = "cloudops.release-intelligence"
       S3_RAW_EVENTS_BUCKET   = aws_s3_bucket.raw.bucket
-      APP_CORS_ORIGINS       = "https://${aws_cloudfront_distribution.web.domain_name}"
+      APP_CORS_ORIGINS       = join(",", concat(["https://${aws_cloudfront_distribution.web.domain_name}"], local.use_frontend_custom_domain ? ["https://${var.frontend_custom_domain}"] : []))
     }
   }
 

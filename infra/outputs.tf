@@ -38,6 +38,16 @@ output "cloudfront_url" {
   value = "https://${aws_cloudfront_distribution.web.domain_name}"
 }
 
+output "frontend_custom_domain" {
+  description = "Custom frontend hostname when configured; empty otherwise."
+  value       = var.frontend_custom_domain
+}
+
+output "frontend_public_url" {
+  description = "Preferred browser URL: custom domain when set, otherwise the default CloudFront URL."
+  value       = local.use_frontend_custom_domain ? "https://${var.frontend_custom_domain}" : "https://${aws_cloudfront_distribution.web.domain_name}"
+}
+
 output "api_endpoint" {
   value = local.deploy_compute ? aws_apigatewayv2_api.http[0].api_endpoint : null
 }

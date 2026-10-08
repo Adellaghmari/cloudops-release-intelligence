@@ -17,3 +17,7 @@ api_image_uri               = ""
 
 # Required for $5 warning and $10 stronger AWS Budget notifications.
 # budget_notification_email = "you@example.com"
+
+# Optional custom frontend domain (requires ACM in us-east-1 + DNS to CloudFront). Leave empty for *.cloudfront.net.
+# frontend_custom_domain       = "app.example.com"
+# frontend_acm_certificate_arn = "arn:aws:acm:us-east-1:ACCOUNT:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"

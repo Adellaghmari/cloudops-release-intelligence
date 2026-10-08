@@ -4,6 +4,7 @@ resource "aws_cloudfront_distribution" "web" {
   default_root_object = "index.html"
   price_class         = "PriceClass_100"
   wait_for_deployment = false
+  aliases             = local.use_frontend_custom_domain ? [var.frontend_custom_domain] : []
 
   origin {
     domain_name              = aws_s3_bucket.web.bucket_regional_domain_name
@@ -32,9 +33,21 @@ resource "aws_cloudfront_distribution" "web" {
   # Default *.cloudfront.net certificate: AWS reports MinimumProtocolVersion=TLSv1
   # regardless of TLSv1.2_2021. Do not fight that with perpetual drift.
   # Custom domain + ACM (us-east-1) is required for a modern viewer TLS policy.
-  viewer_certificate {
-    cloudfront_default_certificate = true
-    minimum_protocol_version       = "TLSv1"
+  dynamic "viewer_certificate" {
+    for_each = local.use_frontend_custom_domain ? [1] : []
+    content {
+      acm_certificate_arn      = var.frontend_acm_certificate_arn
+      ssl_support_method       = "sni-only"
+      minimum_protocol_version = "TLSv1.2_2021"
+    }
+  }
+
+  dynamic "viewer_certificate" {
+    for_each = local.use_frontend_custom_domain ? [] : [1]
+    content {
+      cloudfront_default_certificate = true
+      minimum_protocol_version       = "TLSv1"
+    }
   }
 
   custom_error_response {

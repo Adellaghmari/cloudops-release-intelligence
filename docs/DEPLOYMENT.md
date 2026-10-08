@@ -6,7 +6,7 @@ Single region: `eu-west-1`.
 
 | Piece | Mechanism |
 | --- | --- |
-| Angular SPA | S3 + CloudFront, SHA-prefixed assets, `index.html` at origin root |
+| Angular SPA | S3 + CloudFront, SHA-prefixed assets, `index.html` at origin root; optional `frontend_custom_domain` + `frontend_acm_certificate_arn` (us-east-1) when you own DNS |
 | Go API | Lambda behind API Gateway HTTP API; the frontend uses the API Gateway URL directly in the public build |
 | Worker | SQS-triggered Lambda, same image different `CMD` |
 | Data | DynamoDB + S3 raw bucket |
